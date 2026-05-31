@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3D House — vraie maison connectée</title>
-<meta name="description" content="POC site web 3D — maison entière avec corridor central, portes, 4 pièces. Caméra qui marche dans la maison au scroll.">
+<title>3D House — maison à étage, on rentre par la porte</title>
+<meta name="description" content="POC v0.4 : maison entière à étage. Caméra démarre dehors face à la porte, elle s'ouvre, on rentre, on visite le RDC, on monte à l'étage. Textures PBR Polyhaven + Bloom.">
 <style>
   :root {
     --noir:#0d0d12; --noir-2:#14141A;
@@ -12,20 +12,20 @@
     --rouge:#C5322D; --vert-volet:#8FAF89; --vert-deep:#4A6347;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
-  html, body { background:var(--noir); color:var(--creme); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+  html, body { background:#050508; color:var(--creme); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
   body { overflow-x:hidden; }
   #scene-wrap { position:fixed; inset:0; z-index:0; }
   #scene-wrap canvas { display:block; width:100%; height:100%; }
   main { position:relative; z-index:2; pointer-events:none; }
   section { min-height:100vh; display:flex; align-items:center; padding:80px 24px; }
   .hud { position:fixed; z-index:5; pointer-events:none; }
-  .panel { background:rgba(13,13,18,0.7); border:1px solid rgba(245,240,225,0.14); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  .panel { background:rgba(13,13,18,0.72); border:1px solid rgba(245,240,225,0.14); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
   #brand { top:24px; left:24px; padding:10px 16px; border-radius:2px; }
   #brand .b1 { font-size:11px; font-weight:700; letter-spacing:0.35em; text-transform:uppercase; }
   #brand .b2 { font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--creme-faint); margin-top:2px; }
-  #progress { top:50%; right:24px; transform:translateY(-50%); display:flex; flex-direction:column; gap:12px; padding:14px 10px; border-radius:2px; }
-  #progress .dot { width:8px; height:8px; border-radius:50%; background:rgba(245,240,225,0.25); transition:background .3s, transform .3s; }
-  #progress .dot.active { background:var(--rouge); transform:scale(1.4); }
+  #progress { top:50%; right:24px; transform:translateY(-50%); display:flex; flex-direction:column; gap:10px; padding:14px 10px; border-radius:2px; }
+  #progress .dot { width:7px; height:7px; border-radius:50%; background:rgba(245,240,225,0.25); transition:background .3s, transform .3s; }
+  #progress .dot.active { background:var(--rouge); transform:scale(1.5); box-shadow:0 0 10px var(--rouge); }
   #progress .dot.passed { background:var(--creme-soft); }
   #scroll-hint { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:5; pointer-events:none; opacity:1; transition:opacity .4s; text-align:center; }
   #scroll-hint.gone { opacity:0; }
@@ -38,7 +38,7 @@
   #loader .l-label { font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); }
   @keyframes spin { to { transform:rotate(360deg); } }
   .container { max-width:560px; margin:0 auto; pointer-events:auto; }
-  .kicker { display:inline-block; font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); padding:6px 12px; border:1px solid rgba(245,240,225,0.18); border-radius:2px; margin-bottom:18px; }
+  .kicker { display:inline-block; font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); padding:6px 12px; border:1px solid rgba(245,240,225,0.18); border-radius:2px; margin-bottom:18px; background:rgba(13,13,18,0.55); backdrop-filter:blur(6px); }
   h1 { font-size:clamp(40px, 8vw, 88px); font-weight:800; letter-spacing:-0.02em; line-height:0.95; margin-bottom:18px; }
   h1 .accent { color:var(--rouge); }
   h2 { font-size:clamp(36px, 7vw, 72px); font-weight:800; letter-spacing:-0.02em; line-height:1; margin-bottom:18px; }
@@ -67,12 +67,12 @@
 </head>
 <body>
 
-<div id="loader"><div class="lring"></div><div class="l-label">Chargement de la maison</div></div>
+<div id="loader"><div class="lring"></div><div class="l-label">Préparation de la maison</div></div>
 <div id="scene-wrap"></div>
 
 <div id="brand" class="hud panel">
   <div class="b1">a.SYNC · 3D POC</div>
-  <div class="b2">v0.3 · Maison connectée</div>
+  <div class="b2">v0.4 · Maison à étage</div>
 </div>
 
 <div id="progress" class="hud panel">
@@ -81,6 +81,9 @@
   <div class="dot" data-i="2"></div>
   <div class="dot" data-i="3"></div>
   <div class="dot" data-i="4"></div>
+  <div class="dot" data-i="5"></div>
+  <div class="dot" data-i="6"></div>
+  <div class="dot" data-i="7"></div>
 </div>
 
 <div id="scroll-hint"><div class="arrow"></div><div class="label">Scrolle</div></div>
@@ -88,59 +91,77 @@
 <main>
   <section class="hero" data-room="0">
     <div class="container">
-      <span class="kicker">POC v0.3 · Maison connectée</span>
+      <span class="kicker">POC v0.4 · Maison entière</span>
       <h1>Entre par la <span class="accent">porte.</span></h1>
       <span class="accent-bar"></span>
-      <p class="lead center">Une vraie maison avec couloir et portes. Scrolle pour t'avancer, la caméra entre par l'avant et fait le tour des 4 pièces une par une.</p>
+      <p class="lead center">Tu es devant la maison. Scrolle — la porte s'ouvre, tu rentres, et tu montes à l'étage.</p>
     </div>
   </section>
 
   <section class="left" data-room="1">
     <div class="container">
-      <span class="kicker">Pièce 01 — Entrée (gauche-sud)</span>
-      <h2>Bienvenue.</h2>
+      <span class="kicker">La porte</span>
+      <h2>Elle s'ouvre.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Première porte à gauche : fauteuil + table d'appoint + plante. On respire avant la suite.</p>
+      <p class="lead">Deux vantaux en bois clair. Tu franchis le seuil de l'entrée principale.</p>
     </div>
   </section>
 
   <section class="right" data-room="2">
     <div class="container">
-      <span class="kicker">Pièce 02 — Bureau (droite-sud)</span>
-      <h2>On y travaille.</h2>
+      <span class="kicker">RDC — Couloir</span>
+      <h2>Le rez-de-chaussée.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Sur la droite : bureau debout, écran allumé. C'est ici qu'on construit les sites et qu'on automatise.</p>
+      <p class="lead">Un couloir central qui dessert quatre pièces. Parquet bois clair, murs plâtre crème.</p>
     </div>
   </section>
 
   <section class="left" data-room="3">
     <div class="container">
-      <span class="kicker">Pièce 03 — Galerie (gauche-nord)</span>
-      <h2>On y montre.</h2>
+      <span class="kicker">RDC — Pièce de vie</span>
+      <h2>Salon-bureau.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Mur de cadres et banc bois clair. Le battant, Beurré, et la suite.</p>
+      <p class="lead">À gauche, l'espace de vie principal. Sur ta droite, une autre pièce de travail.</p>
     </div>
   </section>
 
   <section class="right" data-room="4">
     <div class="container">
-      <span class="kicker">Pièce 04 — Réunion (droite-nord)</span>
-      <h2>On en discute.</h2>
+      <span class="kicker">L'escalier</span>
+      <h2>Vers le haut.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Table ronde + lampe pendante. C'est la dernière pièce, et c'est ici qu'on cale les projets.</p>
+      <p class="lead">Un escalier droit, marches bois clair, garde-corps métal noir. Tu montes.</p>
+    </div>
+  </section>
+
+  <section class="left" data-room="5">
+    <div class="container">
+      <span class="kicker">Étage — Mezzanine</span>
+      <h2>L'étage.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Un loft ouvert : la mezzanine surplombe le couloir du RDC. Vue dégagée, hauteur 3 m.</p>
+    </div>
+  </section>
+
+  <section class="right" data-room="6">
+    <div class="container">
+      <span class="kicker">Étage — Vue d'ensemble</span>
+      <h2>Plongée.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Regarde en bas : tu vois les pièces du RDC depuis ton point de vue de l'étage.</p>
     </div>
   </section>
 
   <section class="outro">
     <div class="container">
-      <span class="kicker">Sortie par l'arrière</span>
-      <h2>Fin de la visite.</h2>
+      <span class="kicker">Fin du tour</span>
+      <h2>Et voilà.</h2>
       <span class="accent-bar"></span>
-      <p class="lead center">Remonte pour refaire le tour, ou écris-nous.</p>
+      <p class="lead center">Tu as visité la maison entière, dehors comme dedans. Tu peux remonter pour refaire le tour.</p>
     </div>
   </section>
 
-  <footer>POC v0.3 · maison connectée · <a href="https://github.com/hermanvanel-ui/3d-house-poc" target="_blank" rel="noopener">code sur GitHub</a></footer>
+  <footer>POC v0.4 · maison à étage avec extérieur · <a href="https://github.com/hermanvanel-ui/3d-house-poc" target="_blank" rel="noopener">code GitHub</a></footer>
 </main>
 
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
@@ -155,49 +176,44 @@
 <script type="module">
 import * as THREE from 'three';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // =========================================================
-// PLAN DE LA MAISON
-// Vue de dessus :
-//   z=-10  ┌────[FRONT DOOR]────┐
-//          │ R1 │ corridor │ R2 │  z=[-9,-1]  (south)
-//   z=  0  ├────│          │────┤
-//          │ R3 │ corridor │ R4 │  z=[ 1, 9]  (north)
-//   z= 10  └───────────────────┘
-//        x:-6.5 -1.5    1.5    6.5
-//
-// Corridor central : x ∈ [-1.5, 1.5], z ∈ [-9, 9], largeur 3 m
-// 4 pièces : 5 m large × 8 m profond
-// Portes : 1.6 m, au milieu de chaque mur séparant pièce et corridor
+// PBR LIBRARY HELPER
 // =========================================================
-
-const HOUSE = {
-  halfW: 6.5,      // x extent: -6.5 to 6.5  (largeur 13)
-  halfL: 10,       // z extent: -10 to 10    (longueur 20)
-  wallH: 3.4,
-  wallT: 0.16,
-  corrHalf: 1.5,   // corridor x ∈ [-1.5, 1.5]
-  doorW: 1.6,
-  doorH: 2.4,
-};
-
-const ROOMS = [
-  // center [x, y, z]
-  { id:0, name:'Entrée',   center:[-4, 0, -5], color:0xC5322D, doorZ:-5, doorSide:'east' },  // R1 — mur intérieur = est (x=-1.5), porte à z=-5
-  { id:1, name:'Bureau',   center:[ 4, 0, -5], color:0x8FAF89, doorZ:-5, doorSide:'west' },  // R2 — mur intérieur = ouest (x=+1.5)
-  { id:2, name:'Galerie',  center:[-4, 0,  5], color:0xF5F0E1, doorZ: 5, doorSide:'east' },  // R3
-  { id:3, name:'Réunion',  center:[ 4, 0,  5], color:0x4A6347, doorZ: 5, doorSide:'west' },  // R4
-];
+const PBR_CDN = 'https://dl.polyhaven.org/file/ph-assets/Textures/jpg/{res}/{name}/{name}_{map}_{res}.jpg';
+function loadPBRSet(name, opts = {}) {
+  const { res = '1k', maps = ['diff', 'nor_gl', 'rough', 'ao'], repeat = [1, 1] } = opts;
+  const loader = new THREE.TextureLoader();
+  const result = {};
+  for (const map of maps) {
+    const url = PBR_CDN.replaceAll('{res}', res).replaceAll('{name}', name).replaceAll('{map}', map);
+    const tex = loader.load(url);
+    tex.colorSpace = (map === 'diff') ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(repeat[0], repeat[1]);
+    result[map] = tex;
+  }
+  return result;
+}
+function fixAO(mesh) {
+  if (mesh.geometry && mesh.geometry.attributes.uv && !mesh.geometry.attributes.uv2) {
+    mesh.geometry.setAttribute('uv2', mesh.geometry.attributes.uv);
+  }
+}
 
 // =========================================================
-// SCENE / RENDERER
+// SCENE / RENDERER / COMPOSER
 // =========================================================
 const wrap = document.getElementById('scene-wrap');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d0d12);
-scene.fog = new THREE.FogExp2(0x0d0d12, 0.018);
+scene.background = new THREE.Color(0x07070b);
+scene.fog = new THREE.FogExp2(0x07070b, 0.014);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
 
@@ -208,521 +224,479 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.0;
 wrap.appendChild(renderer.domElement);
+
+const renderPass = new RenderPass(scene, camera);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.5, 0.8);
+const outputPass = new OutputPass();
+const composer = new EffectComposer(renderer);
+composer.addPass(renderPass); composer.addPass(bloomPass); composer.addPass(outputPass);
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
-// HDRI environment
+// =========================================================
+// HDRI — sunset chaud pour l'extérieur + reflets
+// =========================================================
 new RGBELoader().load(
-  'https://threejs.org/examples/textures/equirectangular/royal_esplanade_1k.hdr',
+  'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/venice_sunset_1k.hdr',
   (hdri) => { hdri.mapping = THREE.EquirectangularReflectionMapping; scene.environment = hdri; }
 );
 
-// Textures parquet
-const texLoader = new THREE.TextureLoader();
-function rep(url, rx, ry) {
-  const t = texLoader.load(url);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(rx, ry);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-const woodDiff = rep('https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 4, 5);
-const woodBump = rep('https://threejs.org/examples/textures/hardwood2_bump.jpg',     4, 5);
-
-// Lumières
-scene.add(new THREE.AmbientLight(0xF5F0E1, 0.32));
-const key = new THREE.DirectionalLight(0xFFF6E0, 1.5);
-key.position.set(10, 18, 6);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -20; key.shadow.camera.right = 20;
-key.shadow.camera.top = 20;   key.shadow.camera.bottom = -20;
-key.shadow.bias = -0.0001;
-scene.add(key);
-const fill = new THREE.DirectionalLight(0x9bbcd1, 0.35);
-fill.position.set(-12, 8, -10);
-scene.add(fill);
-
-// Sol extérieur (autour de la maison, pour donner du contexte)
-const groundOut = new THREE.Mesh(
-  new THREE.PlaneGeometry(80, 80),
-  new THREE.MeshStandardMaterial({ color:0x0a0a0e, roughness:0.95 })
-);
-groundOut.rotation.x = -Math.PI/2;
-groundOut.position.y = -0.001;
-groundOut.receiveShadow = true;
-scene.add(groundOut);
+// =========================================================
+// TEXTURES PBR
+// =========================================================
+const parquetTex = loadPBRSet('wood_floor', { res:'1k', repeat:[5, 5] });
+const plasterTex = loadPBRSet('painted_plaster_wall', { res:'1k', repeat:[3, 2] });
+const facadeTex  = loadPBRSet('beige_wall_001', { res:'1k', repeat:[4, 2] });
+const pathTex    = loadPBRSet('brick_floor', { res:'1k', repeat:[6, 8] });
+const grassTex   = loadPBRSet('aerial_grass_rock', { res:'1k', repeat:[12, 12] });
 
 // =========================================================
 // MATÉRIAUX
 // =========================================================
 const MAT = {
-  plaster:   new THREE.MeshStandardMaterial({ color:0xEAE5D6, roughness:0.92 }),
-  plasterDark: new THREE.MeshStandardMaterial({ color:0x1f1f28, roughness:0.85 }),
-  parquet:   new THREE.MeshStandardMaterial({ map:woodDiff, bumpMap:woodBump, bumpScale:0.05, roughness:0.55, metalness:0.05 }),
-  lightWood: new THREE.MeshStandardMaterial({ color:0xC8A576, roughness:0.55, metalness:0.05 }),
-  darkWood:  new THREE.MeshStandardMaterial({ color:0x4E3A29, roughness:0.6 }),
-  blackMetal:new THREE.MeshStandardMaterial({ color:0x1a1a1f, roughness:0.45, metalness:0.6 }),
-  brass:     new THREE.MeshStandardMaterial({ color:0xc9a268, roughness:0.35, metalness:0.85 }),
-  leaf:      new THREE.MeshStandardMaterial({ color:0x4A6347, roughness:0.85 }),
-  leafLight: new THREE.MeshStandardMaterial({ color:0x6f8f6a, roughness:0.85 }),
-  pot:       new THREE.MeshStandardMaterial({ color:0xE8DFC9, roughness:0.85 }),
-  fabricLight: new THREE.MeshStandardMaterial({ color:0xddd0b6, roughness:0.95 }),
-  fabricDark: new THREE.MeshStandardMaterial({ color:0x14141A, roughness:0.95 }),
+  parquet: new THREE.MeshPhysicalMaterial({
+    map: parquetTex.diff, normalMap: parquetTex.nor_gl, roughnessMap: parquetTex.rough, aoMap: parquetTex.ao,
+    roughness: 0.7, metalness: 0.0, envMapIntensity: 0.7
+  }),
+  plaster: new THREE.MeshPhysicalMaterial({
+    map: plasterTex.diff, normalMap: plasterTex.nor_gl, roughnessMap: plasterTex.rough, aoMap: plasterTex.ao,
+    roughness: 1.0, metalness: 0.0
+  }),
+  facade: new THREE.MeshPhysicalMaterial({
+    map: facadeTex.diff, normalMap: facadeTex.nor_gl, roughnessMap: facadeTex.rough, aoMap: facadeTex.ao,
+    roughness: 0.95
+  }),
+  path: new THREE.MeshPhysicalMaterial({
+    map: pathTex.diff, normalMap: pathTex.nor_gl, roughnessMap: pathTex.rough, aoMap: pathTex.ao,
+    roughness: 0.85
+  }),
+  grass: new THREE.MeshPhysicalMaterial({
+    map: grassTex.diff, normalMap: grassTex.nor_gl, roughnessMap: grassTex.rough, aoMap: grassTex.ao,
+    roughness: 0.95
+  }),
+  darkWood: new THREE.MeshStandardMaterial({ color: 0x4E3A29, roughness: 0.6 }),
+  lightWood: new THREE.MeshStandardMaterial({ color: 0xB89060, roughness: 0.55 }),
+  blackMetal: new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.45, metalness: 0.6 }),
+  doorWood: new THREE.MeshPhysicalMaterial({ color: 0x6E4032, roughness: 0.5, metalness: 0.05, clearcoat: 0.3 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xeaf2ff, roughness: 0.05, metalness: 0.1, transmission: 0.7, transparent: true, opacity: 0.4 }),
 };
 
-function castAll(g) { g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return g; }
+function castAll(g) { g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; }}); return g; }
 
 // =========================================================
-// HELPERS — MURS AVEC PORTES
+// LUMIÈRES
 // =========================================================
-const houseGrp = new THREE.Group();
-scene.add(houseGrp);
+scene.add(new THREE.AmbientLight(0xF5F0E1, 0.32));
+const sun = new THREE.DirectionalLight(0xFFE4B5, 1.8);
+sun.position.set(8, 20, -10);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -25; sun.shadow.camera.right = 25;
+sun.shadow.camera.top = 25;   sun.shadow.camera.bottom = -25;
+sun.shadow.bias = -0.0001;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x88AABF, 0.5);
+fill.position.set(-12, 8, 8);
+scene.add(fill);
 
-// Mur vertical le long de z (s'étend de z1 à z2, fixé à x donné)
-// Avec un trou (porte) centré à doorZ, largeur doorW, hauteur doorH
-function wallZ(x, z1, z2, mat, door = null) {
-  const len = z2 - z1;
-  const mid = (z1 + z2) / 2;
+// =========================================================
+// CONFIG MAISON
+// =========================================================
+const HOUSE = {
+  halfW: 6.5,        // x: -6.5 à 6.5
+  halfL: 10,         // z: -10 à 10
+  wallH: 3.4,        // RDC
+  wallT: 0.2,
+  corrHalf: 1.5,
+  doorW: 2.0,
+  doorH: 2.6,
+  floorThickness: 0.25,
+  etageH: 3.0,       // hauteur étage
+};
 
-  if (!door) {
-    const w = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, len), mat);
-    w.position.set(x, HOUSE.wallH/2, mid);
-    castAll(w);
-    houseGrp.add(w);
-    return;
+// =========================================================
+// EXTÉRIEUR — sol terrain + pelouse + chemin + accès maison
+// =========================================================
+const GROUND_SIZE = 40;
+
+// Pelouse (toute la zone)
+const grassG = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE), MAT.grass);
+grassG.rotation.x = -Math.PI / 2;
+grassG.position.y = -0.01;
+grassG.receiveShadow = true;
+fixAO(grassG);
+scene.add(grassG);
+
+// Chemin paved depuis devant la maison vers la porte
+const PATH_W = 2.0;
+const PATH_START_Z = HOUSE.halfL + 8;  // commence loin de la porte
+const PATH_END_Z = HOUSE.halfL + 0.5;    // s'arrête juste devant la porte
+const pathG = new THREE.Mesh(
+  new THREE.PlaneGeometry(PATH_W, PATH_START_Z - PATH_END_Z),
+  MAT.path
+);
+pathG.rotation.x = -Math.PI / 2;
+pathG.position.set(0, 0.005, (PATH_START_Z + PATH_END_Z) / 2);
+pathG.receiveShadow = true;
+fixAO(pathG);
+scene.add(pathG);
+
+// =========================================================
+// FAÇADES EXTÉRIEURES (RDC + étage)
+// =========================================================
+const totalHeight = HOUSE.wallH + HOUSE.floorThickness + HOUSE.etageH;
+
+function makeFacade(w, h, t, x, y, z, withDoorOpening = false) {
+  if (withDoorOpening) {
+    // mur sud avec ouverture porte au milieu (x ∈ [-1, 1], y ∈ [0, doorH])
+    const sw1 = (w - HOUSE.doorW) / 2;
+    // Segment gauche
+    const left = new THREE.Mesh(new THREE.BoxGeometry(sw1, h, t), MAT.facade);
+    left.position.set(-w/2 + sw1/2, y, z);
+    fixAO(left); castAll(left); scene.add(left);
+    // Segment droite
+    const right = new THREE.Mesh(new THREE.BoxGeometry(sw1, h, t), MAT.facade);
+    right.position.set(w/2 - sw1/2, y, z);
+    fixAO(right); castAll(right); scene.add(right);
+    // Linteau (haut de la porte)
+    const lintelH = h - HOUSE.doorH;
+    if (lintelH > 0.01) {
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.doorW, lintelH, t), MAT.facade);
+      lintel.position.set(0, y + h/2 - lintelH/2, z);
+      fixAO(lintel); castAll(lintel); scene.add(lintel);
+    }
+  } else {
+    const w_ = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), MAT.facade);
+    w_.position.set(x, y, z);
+    fixAO(w_); castAll(w_); scene.add(w_);
   }
+}
 
-  const { doorZ, doorW, doorH } = door;
-  // Segment 1 : de z1 à doorZ - doorW/2
+// Façade sud (avec porte) — pleine hauteur RDC + étage
+makeFacade(HOUSE.halfW * 2, totalHeight, HOUSE.wallT, 0, totalHeight / 2, HOUSE.halfL, true);
+// Façade nord (pleine hauteur)
+makeFacade(HOUSE.halfW * 2, totalHeight, HOUSE.wallT, 0, totalHeight / 2, -HOUSE.halfL, false);
+// Façade ouest et est (pleine hauteur)
+const westWall = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, totalHeight, HOUSE.halfL * 2), MAT.facade);
+westWall.position.set(-HOUSE.halfW, totalHeight / 2, 0);
+fixAO(westWall); castAll(westWall); scene.add(westWall);
+const eastWall = westWall.clone();
+eastWall.position.x = HOUSE.halfW;
+scene.add(eastWall);
+
+// =========================================================
+// SOL RDC (parquet)
+// =========================================================
+const floorRDC = new THREE.Mesh(
+  new THREE.BoxGeometry(HOUSE.halfW * 2 - HOUSE.wallT * 2, 0.1, HOUSE.halfL * 2 - HOUSE.wallT * 2),
+  MAT.parquet
+);
+floorRDC.position.y = 0.05;
+floorRDC.receiveShadow = true;
+fixAO(floorRDC);
+scene.add(floorRDC);
+
+// =========================================================
+// CLOISONS INTÉRIEURES RDC — corridor central + 4 pièces
+// (intérieur murs : plâtre)
+// =========================================================
+function wallZinterior(x, z1, z2, withDoor = null) {
+  const len = z2 - z1;
+  if (!withDoor) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, len), MAT.plaster);
+    m.position.set(x, HOUSE.wallH/2, (z1 + z2)/2);
+    fixAO(m); castAll(m); scene.add(m); return;
+  }
+  const { doorZ, doorW, doorH } = withDoor;
   const seg1Len = (doorZ - doorW/2) - z1;
   if (seg1Len > 0.01) {
-    const s1 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg1Len), mat);
+    const s1 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg1Len), MAT.plaster);
     s1.position.set(x, HOUSE.wallH/2, z1 + seg1Len/2);
-    castAll(s1); houseGrp.add(s1);
+    fixAO(s1); castAll(s1); scene.add(s1);
   }
-  // Segment 2 : de doorZ + doorW/2 à z2
   const seg2Len = z2 - (doorZ + doorW/2);
   if (seg2Len > 0.01) {
-    const s2 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg2Len), mat);
+    const s2 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg2Len), MAT.plaster);
     s2.position.set(x, HOUSE.wallH/2, doorZ + doorW/2 + seg2Len/2);
-    castAll(s2); houseGrp.add(s2);
+    fixAO(s2); castAll(s2); scene.add(s2);
   }
-  // Linteau au-dessus de la porte
   const lintelH = HOUSE.wallH - doorH;
   if (lintelH > 0.01) {
-    const lint = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, lintelH, doorW), mat);
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, lintelH, doorW), MAT.plaster);
     lint.position.set(x, doorH + lintelH/2, doorZ);
-    castAll(lint); houseGrp.add(lint);
+    fixAO(lint); castAll(lint); scene.add(lint);
   }
 }
-
-// Mur horizontal le long de x (s'étend de x1 à x2, fixé à z donné)
-function wallX(z, x1, x2, mat, door = null) {
+function wallXinterior(z, x1, x2) {
   const len = x2 - x1;
-  const mid = (x1 + x2) / 2;
-
-  if (!door) {
-    const w = new THREE.Mesh(new THREE.BoxGeometry(len, HOUSE.wallH, HOUSE.wallT), mat);
-    w.position.set(mid, HOUSE.wallH/2, z);
-    castAll(w); houseGrp.add(w);
-    return;
-  }
-
-  const { doorX, doorW, doorH } = door;
-  const seg1Len = (doorX - doorW/2) - x1;
-  if (seg1Len > 0.01) {
-    const s1 = new THREE.Mesh(new THREE.BoxGeometry(seg1Len, HOUSE.wallH, HOUSE.wallT), mat);
-    s1.position.set(x1 + seg1Len/2, HOUSE.wallH/2, z);
-    castAll(s1); houseGrp.add(s1);
-  }
-  const seg2Len = x2 - (doorX + doorW/2);
-  if (seg2Len > 0.01) {
-    const s2 = new THREE.Mesh(new THREE.BoxGeometry(seg2Len, HOUSE.wallH, HOUSE.wallT), mat);
-    s2.position.set(doorX + doorW/2 + seg2Len/2, HOUSE.wallH/2, z);
-    castAll(s2); houseGrp.add(s2);
-  }
-  const lintelH = HOUSE.wallH - doorH;
-  if (lintelH > 0.01) {
-    const lint = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, HOUSE.wallT), mat);
-    lint.position.set(doorX, doorH + lintelH/2, z);
-    castAll(lint); houseGrp.add(lint);
-  }
+  const m = new THREE.Mesh(new THREE.BoxGeometry(len, HOUSE.wallH, HOUSE.wallT), MAT.plaster);
+  m.position.set((x1+x2)/2, HOUSE.wallH/2, z);
+  fixAO(m); castAll(m); scene.add(m);
 }
 
+// Murs corridor : x = -1.5 et +1.5, avec portes pour les pièces
+wallZinterior(-HOUSE.corrHalf, -HOUSE.halfL + HOUSE.wallT, 0, { doorZ: -5, doorW: 1.4, doorH: 2.2 });
+wallZinterior(-HOUSE.corrHalf, 0, HOUSE.halfL - HOUSE.wallT, { doorZ: 5, doorW: 1.4, doorH: 2.2 });
+wallZinterior( HOUSE.corrHalf, -HOUSE.halfL + HOUSE.wallT, 0, { doorZ: -5, doorW: 1.4, doorH: 2.2 });
+wallZinterior( HOUSE.corrHalf, 0, HOUSE.halfL - HOUSE.wallT, { doorZ: 5, doorW: 1.4, doorH: 2.2 });
+// Mur transversal entre pièces nord et sud (à z=0)
+wallXinterior(0, -HOUSE.halfW + HOUSE.wallT, -HOUSE.corrHalf);
+wallXinterior(0,  HOUSE.corrHalf, HOUSE.halfW - HOUSE.wallT);
+
 // =========================================================
-// CONSTRUCTION DE LA MAISON
+// PORTE D'ENTRÉE — 2 vantaux articulés (sur charnières)
 // =========================================================
-const wallMat = MAT.plaster;
-const { halfW, halfL, corrHalf, doorW, doorH, wallT } = HOUSE;
+const DOOR_PANEL_W = HOUSE.doorW / 2 - 0.02;
+function makeDoorPanel() {
+  const g = new THREE.Group();
+  // Panneau principal
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(DOOR_PANEL_W, HOUSE.doorH, 0.045), MAT.doorWood);
+  g.add(panel);
+  // Vitrage en haut
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(DOOR_PANEL_W - 0.15, 0.4, 0.02), MAT.glass);
+  glass.position.set(0, HOUSE.doorH / 2 - 0.35, 0.03);
+  g.add(glass);
+  // Cadre du vitrage
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(DOOR_PANEL_W - 0.1, 0.05, 0.05), MAT.blackMetal);
+  frame.position.set(0, HOUSE.doorH / 2 - 0.16, 0.03);
+  g.add(frame);
+  // Poignée
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.04, 16, 12), MAT.blackMetal);
+  knob.position.set(DOOR_PANEL_W / 2 - 0.1, 0, 0.05);
+  g.add(knob);
+  return castAll(g);
+}
 
-// SOL — parquet sur toute la maison
-const floor = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2, 0.08, halfL * 2), MAT.parquet);
-floor.position.y = 0.04;
-floor.receiveShadow = true;
-houseGrp.add(floor);
+const doorLeft = makeDoorPanel();
+const doorLeftPivot = new THREE.Group();
+doorLeftPivot.position.set(-HOUSE.doorW / 2, HOUSE.doorH / 2, HOUSE.halfL);
+doorLeft.position.x = DOOR_PANEL_W / 2;
+doorLeftPivot.add(doorLeft);
+scene.add(doorLeftPivot);
 
-// MURS EXTÉRIEURS
-// Sud (z = -halfL) — avec porte d'entrée à x=0
-wallX(-halfL, -halfW, halfW, wallMat, { doorX: 0, doorW: 2.0, doorH: 2.6 });
-// Nord (z = halfL) — solide
-wallX(halfL, -halfW, halfW, wallMat);
-// Ouest (x = -halfW)
-wallZ(-halfW, -halfL, halfL, wallMat);
-// Est (x = halfW)
-wallZ(halfW, -halfL, halfL, wallMat);
+const doorRight = makeDoorPanel();
+const doorRightPivot = new THREE.Group();
+doorRightPivot.position.set(HOUSE.doorW / 2, HOUSE.doorH / 2, HOUSE.halfL);
+doorRight.position.x = -DOOR_PANEL_W / 2;
+doorRightPivot.add(doorRight);
+scene.add(doorRightPivot);
 
-// MURS INTÉRIEURS — corridor
-// Mur ouest du corridor (x = -corrHalf), 2 portes (vers R1 z=-5 et R3 z=5)
-// Segment de z=-halfL à z=0 avec porte z=-5
-wallZ(-corrHalf, -halfL + wallT, 0, wallMat, { doorZ: -5, doorW, doorH });
-// Segment de z=0 à z=halfL avec porte z=5
-wallZ(-corrHalf, 0, halfL - wallT, wallMat, { doorZ: 5, doorW, doorH });
+// =========================================================
+// ESCALIER + DALLE ÉTAGE + GARDE-CORPS
+// Escalier dans le corridor : x = 0, z de -8 à -3, montée de y=0 à y=3.6
+// =========================================================
+const STAIR_N = 12;
+const STAIR_W = 1.4;
+const STAIR_TOTAL_Z = 4.5;
+const STAIR_START_Z = -2;
+const STAIR_END_Z = STAIR_START_Z - STAIR_TOTAL_Z;
+const STAIR_TOTAL_H = HOUSE.wallH + HOUSE.floorThickness;
 
-// Mur est du corridor (x = +corrHalf), 2 portes (vers R2 et R4)
-wallZ( corrHalf, -halfL + wallT, 0, wallMat, { doorZ: -5, doorW, doorH });
-wallZ( corrHalf, 0, halfL - wallT, wallMat, { doorZ: 5, doorW, doorH });
+for (let i = 0; i < STAIR_N; i++) {
+  const stepW = STAIR_W;
+  const stepD = STAIR_TOTAL_Z / STAIR_N;
+  const stepH = STAIR_TOTAL_H / STAIR_N;
+  const step = new THREE.Mesh(
+    new THREE.BoxGeometry(stepW, stepH, stepD * 1.05),
+    MAT.lightWood
+  );
+  step.position.set(0, stepH/2 + i * stepH, STAIR_START_Z - i * stepD - stepD/2);
+  step.castShadow = true; step.receiveShadow = true;
+  scene.add(step);
+}
+// Garde-corps à droite de l'escalier (métal noir simple)
+const rail = new THREE.Mesh(
+  new THREE.BoxGeometry(0.04, 0.95, STAIR_TOTAL_Z),
+  MAT.blackMetal
+);
+rail.position.set(STAIR_W / 2 - 0.02, STAIR_TOTAL_H / 2, (STAIR_START_Z + STAIR_END_Z) / 2);
+rail.rotation.x = Math.atan2(STAIR_TOTAL_H, STAIR_TOTAL_Z) * 0;  // pas d'inclinaison, juste un poste
+scene.add(rail);
 
-// MUR TRANSVERSAL à z=0 séparant pièces sud / pièces nord
-// (Seulement pour la partie en dehors du corridor)
-// Côté ouest : de x=-halfW à x=-corrHalf
-wallX(0, -halfW + wallT, -corrHalf, wallMat);
-// Côté est : de x=+corrHalf à x=+halfW
-wallX(0,  corrHalf, halfW - wallT, wallMat);
+// Dalle étage (avec ouverture au-dessus de l'escalier + mezzanine sur le couloir)
+// Dimensions étage : même footprint que RDC, avec ouverture x ∈ [-1.5, 1.5], z ∈ [-9, 5] (mezzanine ouverte sur le couloir + escalier)
+const ETAGE_Y = HOUSE.wallH + HOUSE.floorThickness / 2;
 
-// PLINTHES NOIRES discrètes au bas des murs (le long des murs extérieurs)
-// (optionnel, ajoute du détail) — on garde le minimum pour ne pas surcharger
-// Plinthe ouest extérieur
-const plinthMat = MAT.plasterDark;
-const plinthH = 0.12;
-function plinthZ(x, z1, z2) {
+// Dalle gauche (au-dessus pièces ouest)
+const dalleW = new THREE.Mesh(
+  new THREE.BoxGeometry(HOUSE.halfW - HOUSE.corrHalf - HOUSE.wallT, HOUSE.floorThickness, HOUSE.halfL * 2 - HOUSE.wallT * 2),
+  MAT.parquet
+);
+dalleW.position.set((-HOUSE.halfW + HOUSE.corrHalf) / 2 - HOUSE.wallT / 2 + 0.0, ETAGE_Y, 0);
+dalleW.receiveShadow = true; fixAO(dalleW);
+scene.add(dalleW);
+
+// Dalle droite (au-dessus pièces est)
+const dalleE = dalleW.clone();
+dalleE.position.x = -dalleW.position.x;
+scene.add(dalleE);
+
+// Dalle au-dessus du corridor MAIS UNIQUEMENT au nord de la mezzanine (z=5 à z=halfL)
+const dalleCorrNord = new THREE.Mesh(
+  new THREE.BoxGeometry(HOUSE.corrHalf * 2, HOUSE.floorThickness, HOUSE.halfL - 5),
+  MAT.parquet
+);
+dalleCorrNord.position.set(0, ETAGE_Y, (5 + HOUSE.halfL) / 2);
+dalleCorrNord.receiveShadow = true; fixAO(dalleCorrNord);
+scene.add(dalleCorrNord);
+
+// Garde-corps de la mezzanine (autour de l'ouverture)
+const railMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1f, roughness: 0.5, metalness: 0.5 });
+function makeRailing(w, l, x, y, z, vertical = false) {
+  // Base horizontale
+  const baseG = vertical
+    ? new THREE.BoxGeometry(0.04, 1.0, l)
+    : new THREE.BoxGeometry(w, 1.0, 0.04);
+  const base = new THREE.Mesh(baseG, railMat);
+  base.position.set(x, y + 0.5, z);
+  scene.add(base);
+  // Main courante (top rail)
+  const topG = vertical
+    ? new THREE.BoxGeometry(0.05, 0.05, l)
+    : new THREE.BoxGeometry(w, 0.05, 0.05);
+  const top = new THREE.Mesh(topG, railMat);
+  top.position.set(x, y + 1.0, z);
+  scene.add(top);
+}
+// Garde-corps mezzanine : ouverture x∈[-1.5,1.5], z∈[STAIR_END_Z+? à 5]
+makeRailing(HOUSE.corrHalf * 2, 0, 0, ETAGE_Y + HOUSE.floorThickness / 2, 5, false);  // bord sud de la dalle nord
+
+// =========================================================
+// MURS DE L'ÉTAGE (cloisons intérieures simplifiées)
+// On garde le même pattern : corridor central, mais ouvert au sud
+// Murs étage = ceux qui ferment les pièces de l'étage
+// =========================================================
+function wallZetage(x, z1, z2) {
   const len = z2 - z1;
-  const p = new THREE.Mesh(new THREE.BoxGeometry(0.03, plinthH, len), plinthMat);
-  p.position.set(x, plinthH/2 + 0.08, (z1+z2)/2);
-  houseGrp.add(p);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.etageH, len), MAT.plaster);
+  m.position.set(x, ETAGE_Y + HOUSE.floorThickness / 2 + HOUSE.etageH / 2, (z1+z2)/2);
+  fixAO(m); castAll(m); scene.add(m);
 }
-function plinthX(z, x1, x2) {
+function wallXetage(z, x1, x2) {
   const len = x2 - x1;
-  const p = new THREE.Mesh(new THREE.BoxGeometry(len, plinthH, 0.03), plinthMat);
-  p.position.set((x1+x2)/2, plinthH/2 + 0.08, z);
-  houseGrp.add(p);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(len, HOUSE.etageH, HOUSE.wallT), MAT.plaster);
+  m.position.set((x1+x2)/2, ETAGE_Y + HOUSE.floorThickness / 2 + HOUSE.etageH / 2, z);
+  fixAO(m); castAll(m); scene.add(m);
 }
-plinthZ(-halfW + 0.04, -halfL, halfL);
-plinthZ( halfW - 0.04, -halfL, halfL);
-
-// CIEL — petits beams structurels (visuels), pas un plafond fermé
-// pour laisser entrer la lumière HDRI
-const beamMat = new THREE.MeshStandardMaterial({ color:0x10101a, roughness:0.85 });
-for (let z = -halfL + 2; z <= halfL - 2; z += 3) {
-  const beam = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2 - wallT * 2, 0.18, 0.2), beamMat);
-  beam.position.set(0, HOUSE.wallH - 0.08, z);
-  beam.castShadow = true;
-  houseGrp.add(beam);
-}
+// Cloisons étage : seulement pour fermer les pièces au nord (où il y a une dalle)
+wallZetage(-HOUSE.corrHalf, 5, HOUSE.halfL - HOUSE.wallT);
+wallZetage( HOUSE.corrHalf, 5, HOUSE.halfL - HOUSE.wallT);
 
 // =========================================================
-// FURNITURE FACTORIES
+// MOBILIER (simple)
 // =========================================================
 function makePlant(scale = 1) {
   const g = new THREE.Group();
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.32, 18), MAT.pot);
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.32, 16), new THREE.MeshStandardMaterial({ color: 0xE8DFC9, roughness: 0.9 }));
   pot.position.y = 0.16; g.add(pot);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8), MAT.darkWood);
   trunk.position.y = 0.52; g.add(trunk);
-  for (let i = 0; i < 7; i++) {
-    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18 + Math.random()*0.08, 0), i % 2 ? MAT.leaf : MAT.leafLight);
-    const angle = (i / 7) * Math.PI * 2;
+  for (let i = 0; i < 6; i++) {
+    const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), new THREE.MeshStandardMaterial({ color: i%2 ? 0x4A6347 : 0x6f8f6a, roughness: 0.85 }));
+    const angle = (i / 6) * Math.PI * 2;
     leaf.position.set(Math.cos(angle)*0.22, 0.72 + (i%3)*0.12, Math.sin(angle)*0.22);
     leaf.scale.y = 0.7; g.add(leaf);
   }
   g.scale.setScalar(scale);
   return castAll(g);
 }
-
-function makeLoungeChair() {
-  const g = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), MAT.fabricDark);
-  seat.position.y = 0.4; g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.12), MAT.fabricDark);
-  back.position.set(0, 0.78, -0.36); back.rotation.x = -0.1; g.add(back);
-  for (let dx = -1; dx <= 1; dx += 2)
-    for (let dz = -1; dz <= 1; dz += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4, 10), MAT.blackMetal);
-      leg.position.set(dx*0.34, 0.2, dz*0.34); g.add(leg);
-    }
-  const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 0.3), new THREE.MeshStandardMaterial({ color:0xC5322D, roughness:0.9 }));
-  cushion.position.set(0, 0.55, -0.18); cushion.rotation.x = -0.1; g.add(cushion);
-  return castAll(g);
-}
-
-function makeSideTable() {
-  const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.05, 24), MAT.lightWood);
-  top.position.y = 0.5; g.add(top);
-  const trim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.012, 12, 32), MAT.brass);
-  trim.rotation.x = Math.PI/2; trim.position.y = 0.525; g.add(trim);
-  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 12), MAT.blackMetal);
-  leg.position.y = 0.25; g.add(leg);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.02, 24), MAT.blackMetal);
-  base.position.y = 0.01; g.add(base);
-  const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 12), MAT.pot);
-  candle.position.set(0.1, 0.585, 0); g.add(candle);
-  return castAll(g);
-}
-
-function makeRug(w, l, colorHex) {
-  const m = new THREE.MeshStandardMaterial({ color:colorHex ?? 0x2a2a32, roughness:0.98 });
-  const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.015, l), m);
-  r.position.y = 0.088;
-  r.receiveShadow = true;
-  return r;
-}
-
-function makeFrame(color, w = 1.2, h = 0.85, depth = 0.04) {
-  const g = new THREE.Group();
-  const outer = new THREE.Mesh(new THREE.BoxGeometry(w, h, depth), MAT.blackMetal);
-  g.add(outer);
-  const inner = new THREE.Mesh(new THREE.PlaneGeometry(w-0.1, h-0.1), new THREE.MeshStandardMaterial({ color, roughness:0.95 }));
-  inner.position.z = depth/2 + 0.001;
-  g.add(inner);
-  return castAll(g);
-}
-
-function makeFloorLamp(color) {
-  const g = new THREE.Group();
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.04, 24), MAT.blackMetal);
-  base.position.y = 0.02; g.add(base);
-  const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.65, 10), MAT.brass);
-  rod.position.y = 0.85; g.add(rod);
-  const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.32, 24, 1, true),
-    new THREE.MeshStandardMaterial({ color, roughness:0.9, side:THREE.DoubleSide, emissive:color, emissiveIntensity:0.18 }));
-  shade.position.y = 1.85; g.add(shade);
-  const bulb = new THREE.PointLight(0xffe1a3, 0.7, 6, 1.5);
-  bulb.position.y = 1.75; g.add(bulb);
-  return castAll(g);
-}
-
-function makeDesk() {
-  const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.7), MAT.lightWood);
-  top.position.y = 0.78; g.add(top);
-  for (const dx of [-1.05, 1.05]) {
-    const vert = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.74, 0.04), MAT.blackMetal);
-    vert.position.set(dx, 0.39, -0.28); g.add(vert);
-    const vert2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.74, 0.04), MAT.blackMetal);
-    vert2.position.set(dx, 0.39, 0.28); g.add(vert2);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.6), MAT.blackMetal);
-    base.position.set(dx, 0.02, 0); g.add(base);
-  }
-  const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.06, 0.18, 12), MAT.blackMetal);
-  stand.position.set(0, 0.88, -0.18); g.add(stand);
-  const screen = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.62, 0.04), MAT.blackMetal);
-  screen.position.set(0, 1.28, -0.18); g.add(screen);
-  const display = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 0.56), new THREE.MeshStandardMaterial({ color:0x8FAF89, emissive:0x8FAF89, emissiveIntensity:0.4, roughness:0.4 }));
-  display.position.set(0, 1.28, -0.158); g.add(display);
-  const kb = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.025, 0.18), MAT.plasterDark);
-  kb.position.set(0, 0.823, 0.12); g.add(kb);
-  const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.12, 12), MAT.pot);
-  cup.position.set(-0.85, 0.875, 0.15); g.add(cup);
-  return castAll(g);
-}
-
-function makeOfficeChair() {
-  const g = new THREE.Group();
-  for (let i = 0; i < 5; i++) {
-    const angle = (i/5) * Math.PI * 2;
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.04, 0.05), MAT.blackMetal);
-    arm.position.set(Math.cos(angle)*0.18, 0.05, Math.sin(angle)*0.18);
-    arm.rotation.y = -angle;
-    g.add(arm);
-  }
-  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.42, 12), MAT.blackMetal);
-  pole.position.y = 0.27; g.add(pole);
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), MAT.fabricDark);
-  seat.position.y = 0.55; g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.08), MAT.fabricDark);
-  back.position.set(0, 0.92, -0.21); back.rotation.x = -0.08; g.add(back);
-  return castAll(g);
-}
-
 function makeBench() {
   const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.45), MAT.lightWood);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 0.4), MAT.lightWood);
   top.position.y = 0.45; g.add(top);
-  for (const dx of [-0.85, 0.85]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.45), MAT.blackMetal);
+  for (const dx of [-0.7, 0.7]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.4), MAT.blackMetal);
     leg.position.set(dx, 0.21, 0); g.add(leg);
   }
   return castAll(g);
 }
 
-function makeRoundTable() {
-  const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.05, 32), MAT.lightWood);
-  top.position.y = 0.72; g.add(top);
-  const trim = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.012, 12, 64), MAT.blackMetal);
-  trim.rotation.x = Math.PI/2; trim.position.y = 0.745; g.add(trim);
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.68, 12), MAT.blackMetal);
-  post.position.y = 0.36; g.add(post);
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.04, 24), MAT.blackMetal);
-  base.position.y = 0.02; g.add(base);
-  return castAll(g);
-}
+// RDC : quelques meubles ambiance
+const corridorPlant1 = makePlant(1.0);
+corridorPlant1.position.set(0, 0.11, -8.5);
+scene.add(corridorPlant1);
+const corridorPlant2 = makePlant(1.1);
+corridorPlant2.position.set(0, 0.11, 8.5);
+scene.add(corridorPlant2);
 
-function makeDiningChair() {
-  const g = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.45), MAT.fabricLight);
-  seat.position.y = 0.45; g.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.06), MAT.lightWood);
-  back.position.set(0, 0.75, -0.21); g.add(back);
-  for (let dx = -1; dx <= 1; dx += 2)
-    for (let dz = -1; dz <= 1; dz += 2) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.45, 8), MAT.blackMetal);
-      leg.position.set(dx*0.18, 0.225, dz*0.18); g.add(leg);
-    }
-  return castAll(g);
-}
+// Pièce R1 (ouest sud) : banc + plante
+const benchR1 = makeBench();
+benchR1.position.set(-4, 0.11, -5);
+benchR1.rotation.y = Math.PI / 2;
+scene.add(benchR1);
+const plantR1 = makePlant(1.2);
+plantR1.position.set(-5.5, 0.11, -7);
+scene.add(plantR1);
 
-function makePendantLamp() {
-  const g = new THREE.Group();
-  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 1.2, 6), MAT.blackMetal);
-  cable.position.y = 2.7; g.add(cable);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.35, 32, 16, 0, Math.PI*2, 0, Math.PI/2),
-    new THREE.MeshStandardMaterial({ color:0x14141A, roughness:0.4, metalness:0.5, side:THREE.DoubleSide }));
-  dome.position.y = 2.0; g.add(dome);
-  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 12, 0, Math.PI*2, 0, Math.PI/2), MAT.brass);
-  inner.position.y = 2.01; inner.scale.y = -1; g.add(inner);
-  const bulb = new THREE.PointLight(0xffe2a8, 1.0, 6, 1.4);
-  bulb.position.y = 1.75; g.add(bulb);
-  return castAll(g);
-}
+// Pièce R2 (est sud) : plante seule
+const plantR2 = makePlant(1.0);
+plantR2.position.set(5, 0.11, -5);
+scene.add(plantR2);
+
+// Étage : 2 plantes
+const etagePlant1 = makePlant(1.0);
+etagePlant1.position.set(-4.5, ETAGE_Y + HOUSE.floorThickness / 2 + 0.05, 7);
+scene.add(etagePlant1);
+const etagePlant2 = makePlant(1.0);
+etagePlant2.position.set(4.5, ETAGE_Y + HOUSE.floorThickness / 2 + 0.05, 7);
+scene.add(etagePlant2);
 
 // =========================================================
-// PLACER LE MOBILIER DANS LES PIÈCES
+// LAMPADAIRE EXTÉRIEUR près de la porte (cinematic)
 // =========================================================
-
-// R1 — Entrée (centre [-4, 0, -5]) — back wall ouest x=-halfW=-6.5
-{
-  const cx = -4, cz = -5;
-  const rug = makeRug(2.8, 2.0); rug.position.set(cx, 0.092, cz - 0.3); houseGrp.add(rug);
-  const chair = makeLoungeChair(); chair.position.set(cx - 1.2, 0.1, cz + 0.5); chair.rotation.y = Math.PI/2 + 0.3; houseGrp.add(chair);
-  const table = makeSideTable(); table.position.set(cx - 1.4, 0.1, cz - 0.8); houseGrp.add(table);
-  const plant = makePlant(1.3); plant.position.set(cx - 1.8, 0.1, cz + 2.2); houseGrp.add(plant);
-  // Cadre sur mur ouest (x = -halfW + wallT/2)
-  const frame = makeFrame(0xC5322D, 1.4, 1.0);
-  frame.position.set(-halfW + wallT/2 + 0.03, HOUSE.wallH * 0.55, cz);
-  frame.rotation.y = Math.PI / 2;
-  houseGrp.add(frame);
-  const lamp = makeFloorLamp(0xEAE5D6); lamp.position.set(cx + 0.6, 0.1, cz + 1.8); houseGrp.add(lamp);
-}
-
-// R2 — Bureau (centre [4, 0, -5]) — back wall est x=+halfW
-{
-  const cx = 4, cz = -5;
-  const desk = makeDesk(); desk.position.set(cx + 0.5, 0.1, cz - 1.5); desk.rotation.y = -Math.PI/2; houseGrp.add(desk);
-  const chair = makeOfficeChair(); chair.position.set(cx, 0.1, cz - 1.5); houseGrp.add(chair);
-  const lamp = makeFloorLamp(0x8FAF89); lamp.position.set(cx + 1.4, 0.1, cz + 2.3); houseGrp.add(lamp);
-  const plant = makePlant(1.1); plant.position.set(cx - 1.4, 0.1, cz - 2.4); houseGrp.add(plant);
-  const plant2 = makePlant(0.8); plant2.position.set(cx + 1.5, 0.1, cz + 1.0); houseGrp.add(plant2);
-  // Cadre sur mur est
-  const frame = makeFrame(0x8FAF89, 1.2, 0.85);
-  frame.position.set(halfW - wallT/2 - 0.03, HOUSE.wallH * 0.6, cz);
-  frame.rotation.y = -Math.PI / 2;
-  houseGrp.add(frame);
-}
-
-// R3 — Galerie (centre [-4, 0, 5]) — back wall ouest x=-halfW
-{
-  const cx = -4, cz = 5;
-  // 3 cadres sur mur ouest, alignés verticalement (variant z)
-  const colors = [0xC5322D, 0xF5F0E1, 0x4A6347];
-  colors.forEach((c, i) => {
-    const f = makeFrame(c, 1.0, 0.75);
-    f.position.set(-halfW + wallT/2 + 0.03, HOUSE.wallH * 0.58, cz + (i - 1) * 1.5);
-    f.rotation.y = Math.PI / 2;
-    houseGrp.add(f);
-  });
-  const bench = makeBench(); bench.position.set(cx + 0.6, 0.1, cz); bench.rotation.y = Math.PI/2; houseGrp.add(bench);
-  const bigPlant = makePlant(1.7); bigPlant.position.set(cx - 1.6, 0.1, cz + 2.5); houseGrp.add(bigPlant);
-  const plant2 = makePlant(1.2); plant2.position.set(cx + 1.4, 0.1, cz - 2.5); houseGrp.add(plant2);
-}
-
-// R4 — Réunion (centre [4, 0, 5]) — back wall est x=+halfW
-{
-  const cx = 4, cz = 5;
-  const rug = makeRug(3.2, 3.2, 0x2c2c34); rug.position.set(cx, 0.092, cz); houseGrp.add(rug);
-  const table = makeRoundTable(); table.position.set(cx, 0.1, cz); houseGrp.add(table);
-  const chairAngles = [0, Math.PI/2, Math.PI, -Math.PI/2];
-  chairAngles.forEach(a => {
-    const c = makeDiningChair();
-    c.position.set(cx + Math.cos(a)*1.5, 0.1, cz + Math.sin(a)*1.5);
-    c.rotation.y = -a + Math.PI;
-    houseGrp.add(c);
-  });
-  const pendant = makePendantLamp(); pendant.position.set(cx, 0.1, cz); houseGrp.add(pendant);
-  const plant = makePlant(1.4); plant.position.set(cx - 1.6, 0.1, cz + 2.5); houseGrp.add(plant);
-  const frame = makeFrame(0x4A6347, 1.4, 0.95);
-  frame.position.set(halfW - wallT/2 - 0.03, HOUSE.wallH * 0.58, cz);
-  frame.rotation.y = -Math.PI / 2;
-  houseGrp.add(frame);
-}
-
-// CORRIDOR — éléments décoratifs
-// Tapis runner au sol du corridor
-const runner = new THREE.Mesh(new THREE.BoxGeometry(corrHalf * 2 - 0.4, 0.015, halfL * 2 - 2),
-  new THREE.MeshStandardMaterial({ color:0x1f1f28, roughness:0.95 }));
-runner.position.set(0, 0.088, 0);
-runner.receiveShadow = true;
-houseGrp.add(runner);
-
-// 2 plantes dans le couloir (aux extrémités)
-const corrPlant1 = makePlant(1.2); corrPlant1.position.set(0, 0.1, -8.5); houseGrp.add(corrPlant1);
-const corrPlant2 = makePlant(1.0); corrPlant2.position.set(0, 0.1, 8.5); houseGrp.add(corrPlant2);
-
-// Lampe pendant dans le couloir (au croisement)
-const corrLamp = makePendantLamp(); corrLamp.position.set(0, 0.1, 0); houseGrp.add(corrLamp);
+const lampPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 3.5, 12), MAT.blackMetal);
+lampPole.position.set(2.5, 1.75, HOUSE.halfL + 2);
+scene.add(lampPole);
+const lampHead = new THREE.Mesh(
+  new THREE.SphereGeometry(0.18, 16, 12),
+  new THREE.MeshStandardMaterial({ color: 0xFFE3A0, emissive: 0xFFE3A0, emissiveIntensity: 1.5, roughness: 0.3 })
+);
+lampHead.position.set(2.5, 3.4, HOUSE.halfL + 2);
+scene.add(lampHead);
+const lampLight = new THREE.PointLight(0xFFE3A0, 1.2, 8, 1.4);
+lampLight.position.set(2.5, 3.4, HOUSE.halfL + 2);
+scene.add(lampLight);
 
 // =========================================================
-// CAMERA PATH — vraie marche dans la maison
-// 13 waypoints : approche → entre → R1 → corridor → R2 → corridor → R3 → corridor → R4 → sortie
+// CAMERA PATH — 13 waypoints
+// 0: Approche extérieure (loin)
+// 1: Sur le chemin
+// 2: Devant la porte (fermée)
+// 3: Porte ouverte, franchir le seuil
+// 4-5: Dans le couloir RDC
+// 6: Pièce de vie (jeter un coup d'oeil)
+// 7: Au pied de l'escalier
+// 8: Mi-escalier
+// 9: Arrivée à l'étage
+// 10: Sur la mezzanine (vue plongée)
+// 11: Dans l'étage profond
+// 12: Outro extérieure
 // =========================================================
 const WP = [
-  // 0 — Approche extérieure sud (overview)
-  { p:new THREE.Vector3(0, 7, -22), l:new THREE.Vector3(0, 1, 0) },
-  // 1 — Devant la porte d'entrée
-  { p:new THREE.Vector3(0, 1.7, -13), l:new THREE.Vector3(0, 1.5, -8) },
-  // 2 — Juste entré, dans le corridor sud
-  { p:new THREE.Vector3(0, 1.7, -9), l:new THREE.Vector3(0, 1.5, -5) },
-  // 3 — Devant porte R1 (regard vers l'intérieur ouest)
-  { p:new THREE.Vector3(0, 1.65, -5.5), l:new THREE.Vector3(-5, 1.4, -5) },
-  // 4 — Dans R1 (Entrée)
-  { p:new THREE.Vector3(-3.0, 1.65, -5), l:new THREE.Vector3(-6, 1.3, -5.5) },
-  // 5 — Retour corridor sud
-  { p:new THREE.Vector3(0, 1.7, -4.5), l:new THREE.Vector3(3, 1.4, -5) },
-  // 6 — Dans R2 (Bureau)
-  { p:new THREE.Vector3( 3.0, 1.65, -5), l:new THREE.Vector3(6, 1.3, -5.5) },
-  // 7 — Corridor central
-  { p:new THREE.Vector3(0, 1.7, 0), l:new THREE.Vector3(0, 1.5, 4) },
-  // 8 — Devant porte R3
-  { p:new THREE.Vector3(0, 1.65, 4.5), l:new THREE.Vector3(-5, 1.4, 5) },
-  // 9 — Dans R3 (Galerie)
-  { p:new THREE.Vector3(-3.0, 1.65, 5), l:new THREE.Vector3(-6, 1.4, 5) },
-  // 10 — Corridor nord
-  { p:new THREE.Vector3(0, 1.7, 5.5), l:new THREE.Vector3(3, 1.4, 5) },
-  // 11 — Dans R4 (Réunion)
-  { p:new THREE.Vector3( 3.0, 1.65, 5), l:new THREE.Vector3(6, 1.3, 5.5) },
-  // 12 — Sortie corridor nord (outro)
-  { p:new THREE.Vector3(0, 5, 18), l:new THREE.Vector3(0, 1, 0) },
+  { p:[0, 4.5, 24],         l:[0, 2.5, 0] },          // 0 — extérieur loin
+  { p:[0, 1.7, 16],         l:[0, 1.6, HOUSE.halfL] },// 1 — sur le chemin
+  { p:[0, 1.65, HOUSE.halfL + 2.5], l:[0, 1.5, HOUSE.halfL - 1] }, // 2 — devant porte fermée
+  { p:[0, 1.65, HOUSE.halfL - 0.8], l:[0, 1.5, 5] },  // 3 — vient de franchir
+  { p:[0, 1.65, 7],         l:[0, 1.5, 3] },          // 4 — début couloir RDC
+  { p:[0, 1.65, 3],         l:[0, 1.5, -2] },         // 5 — milieu RDC
+  { p:[-2.5, 1.65, -5],     l:[-5, 1.4, -5] },        // 6 — peek pièce R1
+  { p:[0, 1.65, 0],         l:[0, 1.5, -4] },         // 7 — au pied escalier (regarde vers haut)
+  { p:[0, 2.0, -1],         l:[0, 3.0, -5] },         // 8 — mi-escalier
+  { p:[0, ETAGE_Y + 1.7, -4.5], l:[0, ETAGE_Y + 1.4, 0] }, // 9 — arrivée étage
+  { p:[2.5, ETAGE_Y + 1.7, 0], l:[0, 1.6, 0] },       // 10 — sur mezzanine, regarde en bas
+  { p:[0, ETAGE_Y + 1.7, 7], l:[0, ETAGE_Y + 1.4, 9] }, // 11 — fond étage
+  { p:[10, 5.5, 16],        l:[0, 3, 0] },            // 12 — outro vue de côté extérieur
 ];
 
-const posCurve = new THREE.CatmullRomCurve3(WP.map(w => w.p), false, 'catmullrom', 0.5);
-const lookCurve = new THREE.CatmullRomCurve3(WP.map(w => w.l), false, 'catmullrom', 0.5);
+const posCurve = new THREE.CatmullRomCurve3(WP.map(w => new THREE.Vector3(...w.p)), false, 'centripetal', 0.5);
+const lookCurve = new THREE.CatmullRomCurve3(WP.map(w => new THREE.Vector3(...w.l)), false, 'centripetal', 0.5);
 
 // =========================================================
 // SCROLL + LENIS
@@ -747,7 +721,7 @@ updateScrollT();
 const dots = [...document.querySelectorAll('#progress .dot')];
 const hint = document.getElementById('scroll-hint');
 function updateHUD() {
-  const idx = Math.min(4, Math.round(scrollT * 5));
+  const idx = Math.min(7, Math.round(scrollT * 8));
   dots.forEach((d, i) => {
     d.classList.toggle('active', i === idx);
     d.classList.toggle('passed', i < idx);
@@ -762,38 +736,36 @@ dots.forEach((d, i) => {
 });
 
 // =========================================================
-// LOOP — caméra avec head-bob doux
+// LOOP — anime porte + camera
 // =========================================================
 const clock = new THREE.Clock();
 const lookV = new THREE.Vector3();
-const bobV = new THREE.Vector3();
+function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
 
 function loop() {
   const dt = clock.getDelta();
-  const t = clock.getElapsedTime();
+  scrollT += (targetT - scrollT) * 0.045;
+  const t = Math.max(0, Math.min(1, scrollT));
 
-  // Lerp plus doux qu'avant (0.04 au lieu de 0.08) → mouvement plus fluide
-  scrollT += (targetT - scrollT) * 0.05;
-  const tC = Math.max(0, Math.min(1, scrollT));
+  // Porte d'entrée : ouverture entre t=0.08 et t=0.16
+  const doorOpenT = Math.max(0, Math.min(1, (t - 0.08) / 0.08));
+  const doorEased = easeInOutCubic(doorOpenT);
+  doorLeftPivot.rotation.y = -doorEased * Math.PI * 0.55;   // ouvre vers l'extérieur
+  doorRightPivot.rotation.y = doorEased * Math.PI * 0.55;
 
-  // Sample position et regard
-  const camPos = posCurve.getPointAt(tC);
+  // Caméra
+  const tC = Math.max(0, Math.min(1, t));
+  camera.position.copy(posCurve.getPointAt(tC));
   lookV.copy(lookCurve.getPointAt(tC));
-
-  // Subtle head-bob (uniquement quand on est à l'intérieur, pas pour intro/outro)
-  const inside = tC > 0.08 && tC < 0.92;
-  const bobY = inside ? Math.sin(t * 3) * 0.025 : 0;
-  const bobX = inside ? Math.sin(t * 1.7) * 0.015 : 0;
-  camera.position.set(camPos.x + bobX, camPos.y + bobY, camPos.z);
   camera.lookAt(lookV);
 
   updateHUD();
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(loop);
 }
 loop();
 
-setTimeout(() => document.getElementById('loader').classList.add('gone'), 1500);
+setTimeout(() => document.getElementById('loader').classList.add('gone'), 2200);
 </script>
 </body>
 </html>
