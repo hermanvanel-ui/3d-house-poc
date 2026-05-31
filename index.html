@@ -3,68 +3,181 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3D House — POC navigation pièce-par-pièce</title>
-<meta name="description" content="Proof of concept : site web 3D où chaque pièce = une page. Three.js vanilla, single file, zéro build.">
+<title>3D House — scroll cinématique</title>
+<meta name="description" content="Proof of concept : site web 3D en une seule page, la caméra voyage dans la maison à mesure que tu scrolles. Three.js + Lenis, single file, zéro build.">
 <style>
   :root {
-    --noir:#14141A; --creme:#F5F0E1; --rouge:#C5322D;
-    --vert-volet:#8FAF89; --vert-deep:#4A6347;
+    --noir:#0d0d12;
+    --noir-2:#14141A;
+    --creme:#F5F0E1;
+    --creme-soft:rgba(245,240,225,0.72);
+    --creme-faint:rgba(245,240,225,0.35);
+    --rouge:#C5322D;
+    --vert-volet:#8FAF89;
+    --vert-deep:#4A6347;
   }
-  * { box-sizing:border-box; }
-  html, body { margin:0; height:100%; overflow:hidden; background:var(--noir); color:var(--creme); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
-  canvas { display:block; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { background:var(--noir); color:var(--creme); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
+  body { overflow-x:hidden; }
 
-  /* === HUD === */
-  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
-  .panel { background:rgba(20,20,26,0.75); border:1px solid rgba(245,240,225,0.15); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  /* Fond 3D — toujours plein écran derrière */
+  #scene-wrap { position:fixed; inset:0; z-index:0; }
+  #scene-wrap canvas { display:block; width:100%; height:100%; }
 
-  #brand { position:fixed; top:20px; left:24px; pointer-events:auto; padding:10px 16px; border-radius:2px; }
-  #brand .b1 { font-size:11px; font-weight:700; letter-spacing:0.35em; text-transform:uppercase; color:rgba(245,240,225,0.95); }
-  #brand .b2 { font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(245,240,225,0.45); margin-top:2px; }
+  /* Conteneur principal — c'est lui qui définit la hauteur de scroll */
+  main { position:relative; z-index:2; pointer-events:none; }
+  section { min-height:100vh; display:flex; align-items:center; padding:80px 24px; }
 
-  #nav { position:fixed; top:20px; right:24px; display:flex; gap:8px; pointer-events:auto; }
-  #nav button { background:rgba(20,20,26,0.75); color:var(--creme); border:1px solid rgba(245,240,225,0.2); padding:8px 14px; font:11px/1 system-ui,sans-serif; letter-spacing:0.18em; text-transform:uppercase; cursor:pointer; border-radius:2px; transition:all .18s; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
-  #nav button:hover { border-color:var(--creme); background:rgba(245,240,225,0.08); }
-  #nav button.active { background:var(--rouge); border-color:var(--rouge); color:var(--creme); }
+  /* HUD persistant (logo + progression) */
+  .hud { position:fixed; z-index:5; pointer-events:none; }
+  .panel { background:rgba(13,13,18,0.7); border:1px solid rgba(245,240,225,0.14); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  #brand { top:24px; left:24px; padding:10px 16px; border-radius:2px; }
+  #brand .b1 { font-size:11px; font-weight:700; letter-spacing:0.35em; text-transform:uppercase; }
+  #brand .b2 { font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--creme-faint); margin-top:2px; }
 
-  #content { position:fixed; bottom:28px; left:50%; transform:translateX(-50%); width:min(560px, calc(100% - 32px)); pointer-events:auto; padding:22px 28px 24px; border-radius:3px; text-align:center; }
-  #content .kicker { font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:rgba(245,240,225,0.5); margin-bottom:10px; }
-  #content h2 { margin:0 0 8px; font-size:26px; font-weight:800; letter-spacing:-0.01em; }
-  #content p { margin:0; color:rgba(245,240,225,0.72); font-size:13.5px; line-height:1.55; }
-  #content .accent { display:inline-block; width:36px; height:2px; background:var(--rouge); margin:6px 0 10px; }
+  /* Progression de scroll (dots à droite) */
+  #progress { top:50%; right:24px; transform:translateY(-50%); display:flex; flex-direction:column; gap:12px; padding:14px 10px; border-radius:2px; }
+  #progress .dot { width:8px; height:8px; border-radius:50%; background:rgba(245,240,225,0.25); transition:background .25s, transform .25s; }
+  #progress .dot.active { background:var(--rouge); transform:scale(1.4); }
+  #progress .dot.passed { background:var(--creme-soft); }
 
-  #hint { position:fixed; bottom:6px; left:0; right:0; text-align:center; font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:rgba(245,240,225,0.35); pointer-events:none; }
+  /* Indicateur de scroll en bas du hero */
+  #scroll-hint { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:5; pointer-events:none; opacity:1; transition:opacity .4s; text-align:center; }
+  #scroll-hint.gone { opacity:0; }
+  #scroll-hint .arrow { width:1px; height:36px; background:linear-gradient(to bottom, transparent, var(--creme-soft)); margin:0 auto 6px; animation:hint 2.4s ease-in-out infinite; }
+  #scroll-hint .label { font-size:9px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); }
+  @keyframes hint {
+    0%, 100% { transform:translateY(0); opacity:0.3; }
+    50% { transform:translateY(8px); opacity:1; }
+  }
 
-  #minimap { position:fixed; bottom:24px; right:24px; width:120px; height:120px; pointer-events:none; }
-  #minimap canvas { display:block; border-radius:2px; }
+  /* Contenu des sections */
+  .container { max-width:560px; margin:0 auto; pointer-events:auto; }
+  .kicker { display:inline-block; font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); padding:6px 12px; border:1px solid rgba(245,240,225,0.18); border-radius:2px; margin-bottom:18px; }
+  h1 { font-size:clamp(40px, 8vw, 88px); font-weight:800; letter-spacing:-0.02em; line-height:0.95; margin-bottom:18px; }
+  h1 .accent { color:var(--rouge); }
+  h2 { font-size:clamp(36px, 7vw, 72px); font-weight:800; letter-spacing:-0.02em; line-height:1; margin-bottom:18px; }
+  .accent-bar { display:block; width:48px; height:3px; background:var(--rouge); margin:0 0 22px; }
+  .lead { font-size:18px; line-height:1.55; color:var(--creme-soft); max-width:480px; }
+  .lead.center { margin:0 auto; }
+  section.hero { text-align:center; }
+  section.hero .container { text-align:center; }
+  section.hero .accent-bar { margin-left:auto; margin-right:auto; }
 
-  @media (max-width: 640px) {
-    #nav { top:auto; bottom:170px; right:50%; transform:translateX(50%); flex-wrap:wrap; justify-content:center; max-width:calc(100% - 32px); }
-    #brand { font-size:10px; }
-    #minimap { display:none; }
-    #content { bottom:20px; }
+  /* Carte de section gauche / droite */
+  section.right .container { margin-left:auto; margin-right:6vw; text-align:right; }
+  section.right .accent-bar { margin-left:auto; margin-right:0; }
+  section.left .container { margin-right:auto; margin-left:6vw; }
+
+  /* Outro */
+  section.outro { text-align:center; }
+  section.outro .container { text-align:center; }
+  section.outro .accent-bar { margin-left:auto; margin-right:auto; }
+  section.outro .lead.center { color:var(--creme); }
+
+  /* Petit credits footer */
+  footer { text-align:center; padding:30px 24px 22px; font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--creme-faint); }
+  footer a { color:var(--creme-soft); text-decoration:none; border-bottom:1px solid var(--creme-faint); }
+
+  @media (max-width:760px) {
+    #progress { right:14px; padding:10px 8px; }
+    section.right .container, section.left .container { margin-left:auto; margin-right:auto; text-align:center; }
+    section.right .accent-bar, section.left .accent-bar { margin-left:auto; margin-right:auto; }
+    .lead { text-align:center; margin-left:auto; margin-right:auto; }
+    h1 { font-size:48px; }
+    h2 { font-size:38px; }
   }
 </style>
 </head>
 <body>
-<div id="hud">
-  <div id="brand" class="panel"><div class="b1">a.SYNC · 3D POC</div><div class="b2">Navigation pièce-par-pièce</div></div>
-  <div id="nav">
-    <button data-room="0" class="active">Accueil</button>
-    <button data-room="1">Services</button>
-    <button data-room="2">Réalisations</button>
-    <button data-room="3">Contact</button>
-  </div>
-  <div id="content" class="panel">
-    <div class="kicker" id="room-kicker">Pièce 01 / 04</div>
-    <h2 id="room-title">Accueil</h2>
-    <span class="accent"></span>
-    <p id="room-desc">Bienvenue dans le siège virtuel d'a.SYNC. Clique sur une pièce ou sur les boutons en haut à droite pour t'y déplacer.</p>
-  </div>
-  <div id="minimap"><canvas id="minimap-canvas" width="240" height="240"></canvas></div>
-  <div id="hint">Clique sur une pièce dans la scène, ou sur un bouton en haut</div>
+
+<!-- 3D scene (fond fixe) -->
+<div id="scene-wrap"></div>
+
+<!-- HUD persistant -->
+<div id="brand" class="hud panel">
+  <div class="b1">a.SYNC · 3D POC</div>
+  <div class="b2">Scrolle pour visiter</div>
 </div>
 
+<!-- Dots de progression -->
+<div id="progress" class="hud panel">
+  <div class="dot active" data-i="0"></div>
+  <div class="dot" data-i="1"></div>
+  <div class="dot" data-i="2"></div>
+  <div class="dot" data-i="3"></div>
+  <div class="dot" data-i="4"></div>
+</div>
+
+<!-- Indication scroll -->
+<div id="scroll-hint">
+  <div class="arrow"></div>
+  <div class="label">Scrolle</div>
+</div>
+
+<!-- Sections empilées qui définissent la hauteur de scroll -->
+<main>
+  <section class="hero" data-room="0">
+    <div class="container">
+      <span class="kicker">Proof of Concept · 3D Scroll</span>
+      <h1>Visite <span class="accent">en scrollant.</span></h1>
+      <span class="accent-bar"></span>
+      <p class="lead center">Une seule page. Tu scrolles, la caméra voyage dans la maison. Chaque chapitre = une pièce du siège virtuel a.SYNC.</p>
+    </div>
+  </section>
+
+  <section class="left" data-room="1">
+    <div class="container">
+      <span class="kicker">Pièce 01 / 04 — Accueil</span>
+      <h2>Bienvenue.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Tu viens d'entrer dans le siège virtuel. Continue de scroller — la caméra t'emmène dans la pièce suivante.</p>
+    </div>
+  </section>
+
+  <section class="right" data-room="2">
+    <div class="container">
+      <span class="kicker">Pièce 02 / 04 — Services</span>
+      <h2>Deux pôles, une marque.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Automatisation IA / agents intelligents (pôle d'origine) + création & vente de sites web (nouveau pôle 2026). Portés par l'équipe.</p>
+    </div>
+  </section>
+
+  <section class="left" data-room="3">
+    <div class="container">
+      <span class="kicker">Pièce 03 / 04 — Réalisations</span>
+      <h2>Premiers travaux.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Le battant — fabricant menuiserie aluminium. Beurré — sandwicherie à Nice, V1 spéculative. Et la suite arrive.</p>
+    </div>
+  </section>
+
+  <section class="right" data-room="4">
+    <div class="container">
+      <span class="kicker">Pièce 04 / 04 — Contact</span>
+      <h2>On en parle.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead">Herman & Oscar (co-CEOs) · Beni, Guillaume, William. Pour discuter d'un projet — un mail suffit.</p>
+    </div>
+  </section>
+
+  <section class="outro">
+    <div class="container">
+      <span class="kicker">Fin du voyage</span>
+      <h2>Merci d'être venu.</h2>
+      <span class="accent-bar"></span>
+      <p class="lead center">Ça t'a plu ? Remonte tout en haut pour refaire le tour, ou écris-nous.</p>
+    </div>
+  </section>
+
+  <footer>POC · Three.js + Lenis · single file · <a href="https://github.com/hermanvanel-ui/3d-house-poc" target="_blank" rel="noopener">code sur GitHub</a></footer>
+</main>
+
+<!-- Lenis (smooth scroll premium) -->
+<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
+
+<!-- Three.js (ES module via importmap) -->
 <script type="importmap">
 {
   "imports": {
@@ -75,73 +188,69 @@
 <script type="module">
 import * as THREE from 'three';
 
+const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 // =========================================================
-// 1) DATA — pièces / contenu
+// 1) DATA — pièces (mêmes 4 que la version click)
 // =========================================================
 const ROOMS = [
-  { id:0, name:'Accueil',      kicker:'Pièce 01 / 04', desc:"Bienvenue dans le siège virtuel d'a.SYNC. Clique sur une pièce ou sur les boutons en haut pour t'y déplacer.", pos:[-6,0,-6], color:0xC5322D },
-  { id:1, name:'Services',     kicker:'Pièce 02 / 04', desc:"Automatisation IA / agents intelligents, et nouveau pôle création & vente de sites web.",                     pos:[ 6,0,-6], color:0x8FAF89 },
-  { id:2, name:'Réalisations', kicker:'Pièce 03 / 04', desc:"Premiers projets : Le battant (fabricant menuiserie alu) + Beurré (sandwicherie Nice, V1 spéculative).",       pos:[-6,0, 6], color:0xF5F0E1 },
-  { id:3, name:'Contact',      kicker:'Pièce 04 / 04', desc:"Herman & Oscar (co-CEOs), Beni, Guillaume, William. Dispo pour discuter de votre projet.",                     pos:[ 6,0, 6], color:0x4A6347 }
+  { id:0, name:'Accueil',      pos:[-6,0,-6], color:0xC5322D },
+  { id:1, name:'Services',     pos:[ 6,0,-6], color:0x8FAF89 },
+  { id:2, name:'Réalisations', pos:[-6,0, 6], color:0xF5F0E1 },
+  { id:3, name:'Contact',      pos:[ 6,0, 6], color:0x4A6347 }
 ];
 
 // =========================================================
-// 2) SCENE / RENDERER
+// 2) THREE — scene / renderer / lights
 // =========================================================
-const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+const wrap = document.getElementById('scene-wrap');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d0d12);
-scene.fog = new THREE.Fog(0x0d0d12, 8, 30);
+scene.fog = new THREE.Fog(0x0d0d12, 9, 36);
 
-const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(56, innerWidth/innerHeight, 0.1, 200);
+
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(2, devicePixelRatio));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-document.body.appendChild(renderer.domElement);
+wrap.appendChild(renderer.domElement);
 
 addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
+  camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// =========================================================
-// 3) LIGHTS
-// =========================================================
-scene.add(new THREE.AmbientLight(0xF5F0E1, 0.35));
-const key = new THREE.DirectionalLight(0xF5F0E1, 1.4);
-key.position.set(8, 14, 6);
+// Lights
+scene.add(new THREE.AmbientLight(0xF5F0E1, 0.36));
+const key = new THREE.DirectionalLight(0xF5F0E1, 1.45);
+key.position.set(9, 16, 6);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -20; key.shadow.camera.right = 20;
-key.shadow.camera.top = 20;   key.shadow.camera.bottom = -20;
+key.shadow.camera.left = -24; key.shadow.camera.right = 24;
+key.shadow.camera.top = 24;   key.shadow.camera.bottom = -24;
 scene.add(key);
-const rim = new THREE.DirectionalLight(0xC5322D, 0.35);
-rim.position.set(-8, 6, -8);
+const rim = new THREE.DirectionalLight(0xC5322D, 0.4);
+rim.position.set(-10, 6, -10);
 scene.add(rim);
 
-// =========================================================
-// 4) GROUND (corridor outside rooms)
-// =========================================================
+// Ground + grid
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(60, 60),
-  new THREE.MeshStandardMaterial({ color:0x0a0a0e, roughness:0.95, metalness:0.05 })
+  new THREE.PlaneGeometry(80, 80),
+  new THREE.MeshStandardMaterial({ color:0x0a0a0e, roughness:0.95 })
 );
-ground.rotation.x = -Math.PI / 2;
+ground.rotation.x = -Math.PI/2;
 ground.receiveShadow = true;
 scene.add(ground);
-
-// Subtle grid texture
-const grid = new THREE.GridHelper(60, 30, 0x1f1f28, 0x1f1f28);
+const grid = new THREE.GridHelper(80, 40, 0x1f1f28, 0x1f1f28);
 grid.position.y = 0.001;
 scene.add(grid);
 
 // =========================================================
-// 5) ROOM BUILDER
+// 3) ROOMS
 // =========================================================
 const ROOM_SIZE = 6;
 const WALL_H = 3.4;
@@ -151,7 +260,7 @@ function makeLabel(text, color) {
   const c = document.createElement('canvas');
   c.width = 1024; c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.fillStyle = `#${color.toString(16).padStart(6,'0')}`;
   ctx.font = 'bold 140px system-ui,-apple-system,sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(text.toUpperCase(), 512, 128);
@@ -167,51 +276,46 @@ ROOMS.forEach(room => {
   grp.position.set(room.pos[0], 0, room.pos[2]);
   grp.userData.room = room;
 
-  // Floor (slightly raised platform)
   const floor = new THREE.Mesh(
     new THREE.BoxGeometry(ROOM_SIZE, 0.1, ROOM_SIZE),
     new THREE.MeshStandardMaterial({ color:0x1a1a22, roughness:0.85 })
   );
-  floor.position.y = 0.05;
-  floor.receiveShadow = true;
+  floor.position.y = 0.05; floor.receiveShadow = true;
   grp.add(floor);
 
-  // Walls — back + sides (front is open so we can see in)
   const wallMat = new THREE.MeshStandardMaterial({ color:0x14141A, roughness:0.75 });
-  const back  = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE, WALL_H, WALL_T), wallMat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE, WALL_H, WALL_T), wallMat);
   back.position.set(0, WALL_H/2, -ROOM_SIZE/2);
   back.castShadow = back.receiveShadow = true;
   grp.add(back);
 
-  const sideMat = wallMat.clone();
-  const left  = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, WALL_H, ROOM_SIZE), sideMat);
+  const left = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, WALL_H, ROOM_SIZE), wallMat.clone());
   left.position.set(-ROOM_SIZE/2, WALL_H/2, 0);
   left.castShadow = left.receiveShadow = true;
   grp.add(left);
 
-  const right = left.clone();
-  right.position.x = ROOM_SIZE/2;
+  const right = left.clone(); right.position.x = ROOM_SIZE/2;
   grp.add(right);
 
-  // Accent emissive strip on the back wall
-  const stripMat = new THREE.MeshStandardMaterial({ color:room.color, emissive:room.color, emissiveIntensity:0.6, roughness:0.3 });
+  // Emissive accent on back wall
+  const stripMat = new THREE.MeshStandardMaterial({ color:room.color, emissive:room.color, emissiveIntensity:0.7, roughness:0.3 });
   const strip = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE * 0.7, 0.08, 0.04), stripMat);
   strip.position.set(0, WALL_H * 0.72, -ROOM_SIZE/2 + WALL_T/2 + 0.04);
   grp.add(strip);
 
-  // Floor-level accent line at front
+  // Floor strip at front
   const stripF = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE * 0.85, 0.04, 0.05), stripMat);
   stripF.position.set(0, 0.06, ROOM_SIZE/2 - 0.1);
   grp.add(stripF);
 
-  // 3D label on the back wall
+  // 3D label
   const label = makeLabel(room.name, room.color);
   label.scale.set(3.6, 0.9, 1);
   label.position.set(0, WALL_H * 0.45, -ROOM_SIZE/2 + WALL_T/2 + 0.06);
   grp.add(label);
 
-  // Centerpiece object (different shape per room for identity)
-  const accentMat = new THREE.MeshStandardMaterial({ color:room.color, roughness:0.25, metalness:0.6, emissive:room.color, emissiveIntensity:0.12 });
+  // Centerpiece
+  const accentMat = new THREE.MeshStandardMaterial({ color:room.color, roughness:0.25, metalness:0.55, emissive:room.color, emissiveIntensity:0.14 });
   let piece;
   if (room.id === 0)      piece = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 0),               accentMat);
   else if (room.id === 1) piece = new THREE.Mesh(new THREE.TorusKnotGeometry(0.55, 0.16, 120, 16),    accentMat);
@@ -222,21 +326,19 @@ ROOMS.forEach(room => {
   piece.userData.spin = true;
   grp.add(piece);
 
-  // Plinth under the centerpiece
+  // Plinth
   const plinth = new THREE.Mesh(
     new THREE.CylinderGeometry(0.45, 0.5, 0.3, 24),
     new THREE.MeshStandardMaterial({ color:0x1f1f28, roughness:0.9 })
   );
-  plinth.position.set(0, 0.25, 0);
-  plinth.castShadow = plinth.receiveShadow = true;
+  plinth.position.set(0, 0.25, 0); plinth.castShadow = plinth.receiveShadow = true;
   grp.add(plinth);
 
-  // Roof beams (decorative, casts shadows)
+  // Roof beams
   for (let i = -1; i <= 1; i++) {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE - WALL_T, 0.1, 0.16),
       new THREE.MeshStandardMaterial({ color:0x10101a, roughness:0.9 }));
-    beam.position.set(0, WALL_H - 0.05, i * 1.6);
-    beam.castShadow = true;
+    beam.position.set(0, WALL_H - 0.05, i * 1.6); beam.castShadow = true;
     grp.add(beam);
   }
 
@@ -244,168 +346,121 @@ ROOMS.forEach(room => {
   roomGroups.push(grp);
 });
 
-// Connecting corridors (visual link between rooms)
-function corridor(p1, p2, accentColor) {
-  const dx = p2[0] - p1[0], dz = p2[2] - p1[2];
-  const len = Math.hypot(dx, dz);
-  const mat = new THREE.MeshStandardMaterial({ color:0x16161e, roughness:0.9 });
-  const path = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, len - ROOM_SIZE), mat);
-  path.position.set((p1[0] + p2[0])/2, 0.025, (p1[2] + p2[2])/2);
-  path.rotation.y = Math.atan2(dx, dz) + Math.PI/2;
-  if (Math.abs(dx) > Math.abs(dz)) path.rotation.y = 0;
-  else path.rotation.y = Math.PI / 2;
-  // simpler: align via two axes (works because rooms are in a 2x2 grid)
-  scene.add(path);
-}
-corridor(ROOMS[0].pos, ROOMS[1].pos);
-corridor(ROOMS[2].pos, ROOMS[3].pos);
-corridor(ROOMS[0].pos, ROOMS[2].pos);
-corridor(ROOMS[1].pos, ROOMS[3].pos);
+// =========================================================
+// 4) CAMERA PATH (Catmull-Rom courbe entre les waypoints)
+// =========================================================
 
-// =========================================================
-// 6) CAMERA STATE + TRANSITIONS
-// =========================================================
-function cameraSpot(room) {
-  return new THREE.Vector3(room.pos[0], 1.65, room.pos[2] + 2.0);
+// Waypoint helper : depuis l'avant de la pièce, regard vers le mur du fond
+function spotFor(idx) {
+  const r = ROOMS[idx];
+  return new THREE.Vector3(r.pos[0], 1.65, r.pos[2] + 2.0);
 }
-function lookSpot(room) {
-  return new THREE.Vector3(room.pos[0], 1.4, room.pos[2] - ROOM_SIZE/2);
+function lookFor(idx) {
+  const r = ROOMS[idx];
+  return new THREE.Vector3(r.pos[0], 1.4, r.pos[2] - ROOM_SIZE/2);
 }
 
-let currentRoom = 0;
-camera.position.copy(cameraSpot(ROOMS[0]));
-const lookAt = lookSpot(ROOMS[0]).clone();
-camera.lookAt(lookAt);
+const camPositions = [
+  // 0 — Vue d'ensemble (intro hero) — au-dessus / devant la maison
+  new THREE.Vector3(0, 9, 18),
+  // 1-4 — Une position par pièce
+  spotFor(0),
+  spotFor(1),
+  spotFor(2),
+  spotFor(3),
+  // 5 — Outro : on recule pour montrer la maison en entier (autre angle)
+  new THREE.Vector3(0, 6, 18),
+];
+const camLooks = [
+  new THREE.Vector3(0, 0.5, 0),
+  lookFor(0), lookFor(1), lookFor(2), lookFor(3),
+  new THREE.Vector3(0, 1, 0),
+];
 
-let transition = null;
-function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2; }
+const posCurve = new THREE.CatmullRomCurve3(camPositions, false, 'catmullrom', 0.4);
+const lookCurve = new THREE.CatmullRomCurve3(camLooks, false, 'catmullrom', 0.4);
 
-function goToRoom(idx, instant=false) {
-  if (idx === currentRoom && !transition) return;
-  const target = ROOMS[idx];
-  currentRoom = idx;
+// =========================================================
+// 5) SCROLL → CAMERA PROGRESS (lié via Lenis)
+// =========================================================
+let scrollT = 0;          // 0..1 sur tout le doc
+let targetT = 0;
+const ease = (t) => 1 - Math.pow(1 - t, 2);
 
-  if (instant || prefersReduced) {
-    camera.position.copy(cameraSpot(target));
-    lookAt.copy(lookSpot(target));
-    camera.lookAt(lookAt);
-  } else {
-    // Build an arc trajectory so we feel we walk between rooms
-    const fromPos = camera.position.clone();
-    const toPos = cameraSpot(target);
-    const midPos = new THREE.Vector3().addVectors(fromPos, toPos).multiplyScalar(0.5);
-    midPos.y = 2.6; // slight rise as we travel
-    transition = {
-      t0: performance.now(),
-      duration: 1500,
-      fromPos, midPos, toPos,
-      fromLook: lookAt.clone(),
-      toLook: lookSpot(target),
-    };
-  }
-
-  // Update HUD
-  document.getElementById('room-title').textContent = target.name;
-  document.getElementById('room-desc').textContent = target.desc;
-  document.getElementById('room-kicker').textContent = target.kicker;
-  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('active', +b.dataset.room === idx));
-  drawMinimap();
+function updateScrollT() {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  targetT = Math.max(0, Math.min(1, scrollY / Math.max(1, max)));
 }
 
-// Nav button handlers
-document.querySelectorAll('#nav button').forEach(b => {
-  b.addEventListener('click', () => goToRoom(+b.dataset.room));
-});
+// Lenis smooth scroll
+const lenis = (typeof Lenis === 'function' && !prefersReduced)
+  ? new Lenis({ duration: 1.4, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true, smoothTouch: false })
+  : null;
 
-// Keyboard 1-4
-addEventListener('keydown', (e) => {
-  const i = parseInt(e.key, 10);
-  if (i >= 1 && i <= 4) goToRoom(i - 1);
-});
-
-// Click in 3D — go to clicked room
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-renderer.domElement.addEventListener('click', (e) => {
-  mouse.x = (e.clientX / innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(scene.children, true);
-  for (const h of hits) {
-    let o = h.object;
-    while (o && !o.userData.room) o = o.parent;
-    if (o && o.userData.room) { goToRoom(o.userData.room.id); break; }
-  }
-});
+if (lenis) {
+  lenis.on('scroll', updateScrollT);
+  function rafLenis(t) { lenis.raf(t); requestAnimationFrame(rafLenis); }
+  requestAnimationFrame(rafLenis);
+} else {
+  addEventListener('scroll', updateScrollT, { passive:true });
+}
+updateScrollT();
 
 // =========================================================
-// 7) MINIMAP
+// 6) PROGRESSION DOTS + SCROLL HINT
 // =========================================================
-const mm = document.getElementById('minimap-canvas');
-const mmCtx = mm.getContext('2d');
-function drawMinimap() {
-  const W = mm.width, H = mm.height;
-  mmCtx.clearRect(0, 0, W, H);
-  mmCtx.fillStyle = 'rgba(20,20,26,0.75)';
-  mmCtx.fillRect(0, 0, W, H);
-  mmCtx.strokeStyle = 'rgba(245,240,225,0.15)';
-  mmCtx.strokeRect(0, 0, W, H);
-  const scale = 14;
-  const cx = W/2, cy = H/2;
-  ROOMS.forEach((r, i) => {
-    const x = cx + r.pos[0] * scale * 0.5 - 22;
-    const y = cy + r.pos[2] * scale * 0.5 - 22;
-    mmCtx.fillStyle = i === currentRoom ? `#${r.color.toString(16).padStart(6,'0')}` : 'rgba(245,240,225,0.18)';
-    mmCtx.fillRect(x, y, 44, 44);
-    mmCtx.fillStyle = i === currentRoom ? '#14141A' : 'rgba(245,240,225,0.6)';
-    mmCtx.font = 'bold 10px system-ui';
-    mmCtx.textAlign = 'center';
-    mmCtx.fillText(r.name.slice(0,3).toUpperCase(), x + 22, y + 27);
+const dots = [...document.querySelectorAll('#progress .dot')];
+const hint = document.getElementById('scroll-hint');
+
+function updateHUD() {
+  // Mapper le progrès aux dots : chaque dot couvre une portion
+  // 5 dots (intro / Accueil / Services / Réalisations / Contact) — l'outro reste sur Contact
+  const idx = Math.min(4, Math.round(scrollT * 5));
+  dots.forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+    d.classList.toggle('passed', i < idx);
   });
+  hint.classList.toggle('gone', scrollT > 0.03);
 }
-drawMinimap();
+
+dots.forEach((d, i) => {
+  d.style.pointerEvents = 'auto';
+  d.style.cursor = 'pointer';
+  d.addEventListener('click', () => {
+    // Sauter à la section correspondante
+    const sections = document.querySelectorAll('main > section');
+    sections[i]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
 
 // =========================================================
-// 8) LOOP
+// 7) LOOP
 // =========================================================
 const clock = new THREE.Clock();
+const v = new THREE.Vector3();
+
 function loop() {
   const dt = clock.getDelta();
 
-  // Spin centerpieces
+  // Lerp doux pour absorber les micro-jumps
+  scrollT += (targetT - scrollT) * 0.08;
+
+  // Sample des courbes
+  const tClamped = Math.max(0, Math.min(1, scrollT));
+  camera.position.copy(posCurve.getPointAt(tClamped));
+  v.copy(lookCurve.getPointAt(tClamped));
+  camera.lookAt(v);
+
+  // Centerpieces qui tournent
   roomGroups.forEach(g => g.traverse(o => {
     if (o.userData.spin) { o.rotation.y += dt * 0.5; o.rotation.x += dt * 0.18; }
   }));
 
-  // Camera transition (quadratic bezier through midPos)
-  if (transition) {
-    const t = Math.min(1, (performance.now() - transition.t0) / transition.duration);
-    const e = easeInOutCubic(t);
-    const p1 = transition.fromPos, p2 = transition.midPos, p3 = transition.toPos;
-    const mt = 1 - e;
-    camera.position.set(
-      mt*mt*p1.x + 2*mt*e*p2.x + e*e*p3.x,
-      mt*mt*p1.y + 2*mt*e*p2.y + e*e*p3.y,
-      mt*mt*p1.z + 2*mt*e*p2.z + e*e*p3.z
-    );
-    lookAt.lerpVectors(transition.fromLook, transition.toLook, e);
-    camera.lookAt(lookAt);
-    if (t >= 1) transition = null;
-  } else {
-    // Subtle idle camera sway
-    const t = performance.now() * 0.0003;
-    camera.position.x += Math.sin(t) * 0.0008;
-    camera.position.y += Math.cos(t * 1.3) * 0.0006;
-    camera.lookAt(lookAt);
-  }
-
+  updateHUD();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
 loop();
-
-// Welcome init
-goToRoom(0, true);
 </script>
 </body>
 </html>
