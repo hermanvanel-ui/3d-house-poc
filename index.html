@@ -3,53 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3D House — loft scrollytelling</title>
-<meta name="description" content="POC site web 3D — loft moderne minimaliste, navigation scroll cinématique, mobilier procédural + HDRI Polyhaven.">
+<title>3D House — vraie maison connectée</title>
+<meta name="description" content="POC site web 3D — maison entière avec corridor central, portes, 4 pièces. Caméra qui marche dans la maison au scroll.">
 <style>
   :root {
-    --noir:#0d0d12;
-    --noir-2:#14141A;
-    --creme:#F5F0E1;
-    --creme-soft:rgba(245,240,225,0.72);
-    --creme-faint:rgba(245,240,225,0.35);
-    --rouge:#C5322D;
-    --vert-volet:#8FAF89;
-    --vert-deep:#4A6347;
+    --noir:#0d0d12; --noir-2:#14141A;
+    --creme:#F5F0E1; --creme-soft:rgba(245,240,225,0.72); --creme-faint:rgba(245,240,225,0.35);
+    --rouge:#C5322D; --vert-volet:#8FAF89; --vert-deep:#4A6347;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body { background:var(--noir); color:var(--creme); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; -webkit-font-smoothing:antialiased; }
   body { overflow-x:hidden; }
-
   #scene-wrap { position:fixed; inset:0; z-index:0; }
   #scene-wrap canvas { display:block; width:100%; height:100%; }
-
   main { position:relative; z-index:2; pointer-events:none; }
   section { min-height:100vh; display:flex; align-items:center; padding:80px 24px; }
-
   .hud { position:fixed; z-index:5; pointer-events:none; }
   .panel { background:rgba(13,13,18,0.7); border:1px solid rgba(245,240,225,0.14); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
   #brand { top:24px; left:24px; padding:10px 16px; border-radius:2px; }
   #brand .b1 { font-size:11px; font-weight:700; letter-spacing:0.35em; text-transform:uppercase; }
   #brand .b2 { font-size:9px; letter-spacing:0.3em; text-transform:uppercase; color:var(--creme-faint); margin-top:2px; }
-
   #progress { top:50%; right:24px; transform:translateY(-50%); display:flex; flex-direction:column; gap:12px; padding:14px 10px; border-radius:2px; }
-  #progress .dot { width:8px; height:8px; border-radius:50%; background:rgba(245,240,225,0.25); transition:background .25s, transform .25s; }
+  #progress .dot { width:8px; height:8px; border-radius:50%; background:rgba(245,240,225,0.25); transition:background .3s, transform .3s; }
   #progress .dot.active { background:var(--rouge); transform:scale(1.4); }
   #progress .dot.passed { background:var(--creme-soft); }
-
   #scroll-hint { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:5; pointer-events:none; opacity:1; transition:opacity .4s; text-align:center; }
   #scroll-hint.gone { opacity:0; }
   #scroll-hint .arrow { width:1px; height:36px; background:linear-gradient(to bottom, transparent, var(--creme-soft)); margin:0 auto 6px; animation:hint 2.4s ease-in-out infinite; }
   #scroll-hint .label { font-size:9px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); }
   @keyframes hint { 0%,100% { transform:translateY(0); opacity:0.3; } 50% { transform:translateY(8px); opacity:1; } }
-
-  /* Loading splash */
   #loader { position:fixed; inset:0; background:var(--noir); z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:opacity .6s, visibility .6s; }
   #loader.gone { opacity:0; visibility:hidden; }
   #loader .lring { width:48px; height:48px; border:2px solid rgba(245,240,225,0.15); border-top-color:var(--rouge); border-radius:50%; animation:spin 1s linear infinite; margin-bottom:18px; }
   #loader .l-label { font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); }
   @keyframes spin { to { transform:rotate(360deg); } }
-
   .container { max-width:560px; margin:0 auto; pointer-events:auto; }
   .kicker { display:inline-block; font-size:10px; letter-spacing:0.4em; text-transform:uppercase; color:var(--creme-faint); padding:6px 12px; border:1px solid rgba(245,240,225,0.18); border-radius:2px; margin-bottom:18px; }
   h1 { font-size:clamp(40px, 8vw, 88px); font-weight:800; letter-spacing:-0.02em; line-height:0.95; margin-bottom:18px; }
@@ -61,37 +48,31 @@
   section.hero { text-align:center; }
   section.hero .container { text-align:center; }
   section.hero .accent-bar { margin-left:auto; margin-right:auto; }
-
   section.right .container { margin-left:auto; margin-right:6vw; text-align:right; }
   section.right .accent-bar { margin-left:auto; margin-right:0; }
   section.left .container { margin-right:auto; margin-left:6vw; }
-
   section.outro { text-align:center; }
   section.outro .container { text-align:center; }
   section.outro .accent-bar { margin-left:auto; margin-right:auto; }
-
   footer { text-align:center; padding:30px 24px 22px; font-size:10px; letter-spacing:0.3em; text-transform:uppercase; color:var(--creme-faint); }
   footer a { color:var(--creme-soft); text-decoration:none; border-bottom:1px solid var(--creme-faint); }
-
   @media (max-width:760px) {
     #progress { right:14px; padding:10px 8px; }
     section.right .container, section.left .container { margin-left:auto; margin-right:auto; text-align:center; }
     section.right .accent-bar, section.left .accent-bar { margin-left:auto; margin-right:auto; }
     .lead { text-align:center; margin-left:auto; margin-right:auto; }
-    h1 { font-size:48px; }
-    h2 { font-size:38px; }
+    h1 { font-size:48px; } h2 { font-size:38px; }
   }
 </style>
 </head>
 <body>
 
 <div id="loader"><div class="lring"></div><div class="l-label">Chargement de la maison</div></div>
-
 <div id="scene-wrap"></div>
 
 <div id="brand" class="hud panel">
   <div class="b1">a.SYNC · 3D POC</div>
-  <div class="b2">Loft v0.2 · Scrolle pour visiter</div>
+  <div class="b2">v0.3 · Maison connectée</div>
 </div>
 
 <div id="progress" class="hud panel">
@@ -107,59 +88,59 @@
 <main>
   <section class="hero" data-room="0">
     <div class="container">
-      <span class="kicker">POC v0.2 · Loft Moderne</span>
-      <h1>Visite <span class="accent">en scrollant.</span></h1>
+      <span class="kicker">POC v0.3 · Maison connectée</span>
+      <h1>Entre par la <span class="accent">porte.</span></h1>
       <span class="accent-bar"></span>
-      <p class="lead center">Bienvenue dans le siège virtuel a.SYNC. Scrolle — la caméra t'emmène de pièce en pièce, façon Apple AirPods Pro.</p>
+      <p class="lead center">Une vraie maison avec couloir et portes. Scrolle pour t'avancer, la caméra entre par l'avant et fait le tour des 4 pièces une par une.</p>
     </div>
   </section>
 
   <section class="left" data-room="1">
     <div class="container">
-      <span class="kicker">Pièce 01 — Entrée</span>
+      <span class="kicker">Pièce 01 — Entrée (gauche-sud)</span>
       <h2>Bienvenue.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Un fauteuil, une plante, un cadre rouge sur le mur. Tu es bien arrivé.</p>
+      <p class="lead">Première porte à gauche : fauteuil + table d'appoint + plante. On respire avant la suite.</p>
     </div>
   </section>
 
   <section class="right" data-room="2">
     <div class="container">
-      <span class="kicker">Pièce 02 — Bureau</span>
-      <h2>Deux pôles, une marque.</h2>
+      <span class="kicker">Pièce 02 — Bureau (droite-sud)</span>
+      <h2>On y travaille.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">C'est ici qu'on automatise (IA / agents) et qu'on conçoit des sites. Bureau debout, écran allumé, plantes.</p>
+      <p class="lead">Sur la droite : bureau debout, écran allumé. C'est ici qu'on construit les sites et qu'on automatise.</p>
     </div>
   </section>
 
   <section class="left" data-room="3">
     <div class="container">
-      <span class="kicker">Pièce 03 — Galerie</span>
-      <h2>Premiers travaux.</h2>
+      <span class="kicker">Pièce 03 — Galerie (gauche-nord)</span>
+      <h2>On y montre.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Mur de cadres : Le battant, Beurré, et la suite à venir.</p>
+      <p class="lead">Mur de cadres et banc bois clair. Le battant, Beurré, et la suite.</p>
     </div>
   </section>
 
   <section class="right" data-room="4">
     <div class="container">
-      <span class="kicker">Pièce 04 — Réunion</span>
-      <h2>On en parle.</h2>
+      <span class="kicker">Pièce 04 — Réunion (droite-nord)</span>
+      <h2>On en discute.</h2>
       <span class="accent-bar"></span>
-      <p class="lead">Table ronde, lampe suspendue. C'est ici qu'on cale les projets — un mail suffit pour s'inviter.</p>
+      <p class="lead">Table ronde + lampe pendante. C'est la dernière pièce, et c'est ici qu'on cale les projets.</p>
     </div>
   </section>
 
   <section class="outro">
     <div class="container">
-      <span class="kicker">Fin du voyage</span>
-      <h2>Merci d'être venu.</h2>
+      <span class="kicker">Sortie par l'arrière</span>
+      <h2>Fin de la visite.</h2>
       <span class="accent-bar"></span>
-      <p class="lead center">Remonte tout en haut pour refaire le tour, ou écris-nous.</p>
+      <p class="lead center">Remonte pour refaire le tour, ou écris-nous.</p>
     </div>
   </section>
 
-  <footer>POC v0.2 · Three.js + Lenis + HDRI Polyhaven · <a href="https://github.com/hermanvanel-ui/3d-house-poc" target="_blank" rel="noopener">code sur GitHub</a></footer>
+  <footer>POC v0.3 · maison connectée · <a href="https://github.com/hermanvanel-ui/3d-house-poc" target="_blank" rel="noopener">code sur GitHub</a></footer>
 </main>
 
 <script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>
@@ -178,24 +159,47 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 const prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // =========================================================
-// 1) ROOMS — palette a.SYNC
+// PLAN DE LA MAISON
+// Vue de dessus :
+//   z=-10  ┌────[FRONT DOOR]────┐
+//          │ R1 │ corridor │ R2 │  z=[-9,-1]  (south)
+//   z=  0  ├────│          │────┤
+//          │ R3 │ corridor │ R4 │  z=[ 1, 9]  (north)
+//   z= 10  └───────────────────┘
+//        x:-6.5 -1.5    1.5    6.5
+//
+// Corridor central : x ∈ [-1.5, 1.5], z ∈ [-9, 9], largeur 3 m
+// 4 pièces : 5 m large × 8 m profond
+// Portes : 1.6 m, au milieu de chaque mur séparant pièce et corridor
 // =========================================================
+
+const HOUSE = {
+  halfW: 6.5,      // x extent: -6.5 to 6.5  (largeur 13)
+  halfL: 10,       // z extent: -10 to 10    (longueur 20)
+  wallH: 3.4,
+  wallT: 0.16,
+  corrHalf: 1.5,   // corridor x ∈ [-1.5, 1.5]
+  doorW: 1.6,
+  doorH: 2.4,
+};
+
 const ROOMS = [
-  { id:0, name:'Entrée',       pos:[-7,0,-7], color:0xC5322D },
-  { id:1, name:'Bureau',       pos:[ 7,0,-7], color:0x8FAF89 },
-  { id:2, name:'Galerie',      pos:[-7,0, 7], color:0xF5F0E1 },
-  { id:3, name:'Réunion',      pos:[ 7,0, 7], color:0x4A6347 }
+  // center [x, y, z]
+  { id:0, name:'Entrée',   center:[-4, 0, -5], color:0xC5322D, doorZ:-5, doorSide:'east' },  // R1 — mur intérieur = est (x=-1.5), porte à z=-5
+  { id:1, name:'Bureau',   center:[ 4, 0, -5], color:0x8FAF89, doorZ:-5, doorSide:'west' },  // R2 — mur intérieur = ouest (x=+1.5)
+  { id:2, name:'Galerie',  center:[-4, 0,  5], color:0xF5F0E1, doorZ: 5, doorSide:'east' },  // R3
+  { id:3, name:'Réunion',  center:[ 4, 0,  5], color:0x4A6347, doorZ: 5, doorSide:'west' },  // R4
 ];
 
 // =========================================================
-// 2) SCENE
+// SCENE / RENDERER
 // =========================================================
 const wrap = document.getElementById('scene-wrap');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d0d12);
-scene.fog = new THREE.Fog(0x0d0d12, 12, 42);
+scene.fog = new THREE.FogExp2(0x0d0d12, 0.018);
 
-const camera = new THREE.PerspectiveCamera(56, innerWidth/innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(58, innerWidth/innerHeight, 0.1, 200);
 
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.setSize(innerWidth, innerHeight);
@@ -213,24 +217,13 @@ addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
 });
 
-// =========================================================
-// 3) HDRI ENVIRONMENT (Polyhaven via threejs.org CDN)
-// =========================================================
-let hdriLoaded = false;
+// HDRI environment
 new RGBELoader().load(
   'https://threejs.org/examples/textures/equirectangular/royal_esplanade_1k.hdr',
-  (hdri) => {
-    hdri.mapping = THREE.EquirectangularReflectionMapping;
-    scene.environment = hdri;
-    hdriLoaded = true;
-  },
-  undefined,
-  () => { hdriLoaded = true; } // fallback
+  (hdri) => { hdri.mapping = THREE.EquirectangularReflectionMapping; scene.environment = hdri; }
 );
 
-// =========================================================
-// 4) TEXTURES (parquet bois clair)
-// =========================================================
+// Textures parquet
 const texLoader = new THREE.TextureLoader();
 function rep(url, rx, ry) {
   const t = texLoader.load(url);
@@ -239,43 +232,38 @@ function rep(url, rx, ry) {
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-const woodDiff  = rep('https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 2.5, 2.5);
-const woodBump  = rep('https://threejs.org/examples/textures/hardwood2_bump.jpg',     2.5, 2.5);
+const woodDiff = rep('https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 4, 5);
+const woodBump = rep('https://threejs.org/examples/textures/hardwood2_bump.jpg',     4, 5);
 
-// =========================================================
-// 5) LIGHTS (warm + key + rim)
-// =========================================================
-scene.add(new THREE.AmbientLight(0xF5F0E1, 0.28));
-
-const key = new THREE.DirectionalLight(0xFFF6E0, 1.7);
-key.position.set(10, 18, 8);
+// Lumières
+scene.add(new THREE.AmbientLight(0xF5F0E1, 0.32));
+const key = new THREE.DirectionalLight(0xFFF6E0, 1.5);
+key.position.set(10, 18, 6);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -28; key.shadow.camera.right = 28;
-key.shadow.camera.top = 28;   key.shadow.camera.bottom = -28;
+key.shadow.camera.left = -20; key.shadow.camera.right = 20;
+key.shadow.camera.top = 20;   key.shadow.camera.bottom = -20;
 key.shadow.bias = -0.0001;
 scene.add(key);
-
-const fill = new THREE.DirectionalLight(0x9bbcd1, 0.4);
+const fill = new THREE.DirectionalLight(0x9bbcd1, 0.35);
 fill.position.set(-12, 8, -10);
 scene.add(fill);
 
-// =========================================================
-// 6) GROUND (corridor extérieur)
-// =========================================================
-const ground = new THREE.Mesh(
+// Sol extérieur (autour de la maison, pour donner du contexte)
+const groundOut = new THREE.Mesh(
   new THREE.PlaneGeometry(80, 80),
   new THREE.MeshStandardMaterial({ color:0x0a0a0e, roughness:0.95 })
 );
-ground.rotation.x = -Math.PI/2;
-ground.receiveShadow = true;
-scene.add(ground);
+groundOut.rotation.x = -Math.PI/2;
+groundOut.position.y = -0.001;
+groundOut.receiveShadow = true;
+scene.add(groundOut);
 
 // =========================================================
-// 7) HELPERS — matériaux loft
+// MATÉRIAUX
 // =========================================================
 const MAT = {
-  plaster:   new THREE.MeshStandardMaterial({ color:0xEAE5D6, roughness:0.92, metalness:0 }),
+  plaster:   new THREE.MeshStandardMaterial({ color:0xEAE5D6, roughness:0.92 }),
   plasterDark: new THREE.MeshStandardMaterial({ color:0x1f1f28, roughness:0.85 }),
   parquet:   new THREE.MeshStandardMaterial({ map:woodDiff, bumpMap:woodBump, bumpScale:0.05, roughness:0.55, metalness:0.05 }),
   lightWood: new THREE.MeshStandardMaterial({ color:0xC8A576, roughness:0.55, metalness:0.05 }),
@@ -285,7 +273,6 @@ const MAT = {
   leaf:      new THREE.MeshStandardMaterial({ color:0x4A6347, roughness:0.85 }),
   leafLight: new THREE.MeshStandardMaterial({ color:0x6f8f6a, roughness:0.85 }),
   pot:       new THREE.MeshStandardMaterial({ color:0xE8DFC9, roughness:0.85 }),
-  glass:     new THREE.MeshPhysicalMaterial({ color:0xeaf2ff, roughness:0.05, metalness:0.1, transmission:0.6, transparent:true, opacity:0.45 }),
   fabricLight: new THREE.MeshStandardMaterial({ color:0xddd0b6, roughness:0.95 }),
   fabricDark: new THREE.MeshStandardMaterial({ color:0x14141A, roughness:0.95 }),
 };
@@ -293,24 +280,166 @@ const MAT = {
 function castAll(g) { g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return g; }
 
 // =========================================================
-// 8) FURNITURE FUNCTIONS (procédural loft scandinave)
+// HELPERS — MURS AVEC PORTES
+// =========================================================
+const houseGrp = new THREE.Group();
+scene.add(houseGrp);
+
+// Mur vertical le long de z (s'étend de z1 à z2, fixé à x donné)
+// Avec un trou (porte) centré à doorZ, largeur doorW, hauteur doorH
+function wallZ(x, z1, z2, mat, door = null) {
+  const len = z2 - z1;
+  const mid = (z1 + z2) / 2;
+
+  if (!door) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, len), mat);
+    w.position.set(x, HOUSE.wallH/2, mid);
+    castAll(w);
+    houseGrp.add(w);
+    return;
+  }
+
+  const { doorZ, doorW, doorH } = door;
+  // Segment 1 : de z1 à doorZ - doorW/2
+  const seg1Len = (doorZ - doorW/2) - z1;
+  if (seg1Len > 0.01) {
+    const s1 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg1Len), mat);
+    s1.position.set(x, HOUSE.wallH/2, z1 + seg1Len/2);
+    castAll(s1); houseGrp.add(s1);
+  }
+  // Segment 2 : de doorZ + doorW/2 à z2
+  const seg2Len = z2 - (doorZ + doorW/2);
+  if (seg2Len > 0.01) {
+    const s2 = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, HOUSE.wallH, seg2Len), mat);
+    s2.position.set(x, HOUSE.wallH/2, doorZ + doorW/2 + seg2Len/2);
+    castAll(s2); houseGrp.add(s2);
+  }
+  // Linteau au-dessus de la porte
+  const lintelH = HOUSE.wallH - doorH;
+  if (lintelH > 0.01) {
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(HOUSE.wallT, lintelH, doorW), mat);
+    lint.position.set(x, doorH + lintelH/2, doorZ);
+    castAll(lint); houseGrp.add(lint);
+  }
+}
+
+// Mur horizontal le long de x (s'étend de x1 à x2, fixé à z donné)
+function wallX(z, x1, x2, mat, door = null) {
+  const len = x2 - x1;
+  const mid = (x1 + x2) / 2;
+
+  if (!door) {
+    const w = new THREE.Mesh(new THREE.BoxGeometry(len, HOUSE.wallH, HOUSE.wallT), mat);
+    w.position.set(mid, HOUSE.wallH/2, z);
+    castAll(w); houseGrp.add(w);
+    return;
+  }
+
+  const { doorX, doorW, doorH } = door;
+  const seg1Len = (doorX - doorW/2) - x1;
+  if (seg1Len > 0.01) {
+    const s1 = new THREE.Mesh(new THREE.BoxGeometry(seg1Len, HOUSE.wallH, HOUSE.wallT), mat);
+    s1.position.set(x1 + seg1Len/2, HOUSE.wallH/2, z);
+    castAll(s1); houseGrp.add(s1);
+  }
+  const seg2Len = x2 - (doorX + doorW/2);
+  if (seg2Len > 0.01) {
+    const s2 = new THREE.Mesh(new THREE.BoxGeometry(seg2Len, HOUSE.wallH, HOUSE.wallT), mat);
+    s2.position.set(doorX + doorW/2 + seg2Len/2, HOUSE.wallH/2, z);
+    castAll(s2); houseGrp.add(s2);
+  }
+  const lintelH = HOUSE.wallH - doorH;
+  if (lintelH > 0.01) {
+    const lint = new THREE.Mesh(new THREE.BoxGeometry(doorW, lintelH, HOUSE.wallT), mat);
+    lint.position.set(doorX, doorH + lintelH/2, z);
+    castAll(lint); houseGrp.add(lint);
+  }
+}
+
+// =========================================================
+// CONSTRUCTION DE LA MAISON
+// =========================================================
+const wallMat = MAT.plaster;
+const { halfW, halfL, corrHalf, doorW, doorH, wallT } = HOUSE;
+
+// SOL — parquet sur toute la maison
+const floor = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2, 0.08, halfL * 2), MAT.parquet);
+floor.position.y = 0.04;
+floor.receiveShadow = true;
+houseGrp.add(floor);
+
+// MURS EXTÉRIEURS
+// Sud (z = -halfL) — avec porte d'entrée à x=0
+wallX(-halfL, -halfW, halfW, wallMat, { doorX: 0, doorW: 2.0, doorH: 2.6 });
+// Nord (z = halfL) — solide
+wallX(halfL, -halfW, halfW, wallMat);
+// Ouest (x = -halfW)
+wallZ(-halfW, -halfL, halfL, wallMat);
+// Est (x = halfW)
+wallZ(halfW, -halfL, halfL, wallMat);
+
+// MURS INTÉRIEURS — corridor
+// Mur ouest du corridor (x = -corrHalf), 2 portes (vers R1 z=-5 et R3 z=5)
+// Segment de z=-halfL à z=0 avec porte z=-5
+wallZ(-corrHalf, -halfL + wallT, 0, wallMat, { doorZ: -5, doorW, doorH });
+// Segment de z=0 à z=halfL avec porte z=5
+wallZ(-corrHalf, 0, halfL - wallT, wallMat, { doorZ: 5, doorW, doorH });
+
+// Mur est du corridor (x = +corrHalf), 2 portes (vers R2 et R4)
+wallZ( corrHalf, -halfL + wallT, 0, wallMat, { doorZ: -5, doorW, doorH });
+wallZ( corrHalf, 0, halfL - wallT, wallMat, { doorZ: 5, doorW, doorH });
+
+// MUR TRANSVERSAL à z=0 séparant pièces sud / pièces nord
+// (Seulement pour la partie en dehors du corridor)
+// Côté ouest : de x=-halfW à x=-corrHalf
+wallX(0, -halfW + wallT, -corrHalf, wallMat);
+// Côté est : de x=+corrHalf à x=+halfW
+wallX(0,  corrHalf, halfW - wallT, wallMat);
+
+// PLINTHES NOIRES discrètes au bas des murs (le long des murs extérieurs)
+// (optionnel, ajoute du détail) — on garde le minimum pour ne pas surcharger
+// Plinthe ouest extérieur
+const plinthMat = MAT.plasterDark;
+const plinthH = 0.12;
+function plinthZ(x, z1, z2) {
+  const len = z2 - z1;
+  const p = new THREE.Mesh(new THREE.BoxGeometry(0.03, plinthH, len), plinthMat);
+  p.position.set(x, plinthH/2 + 0.08, (z1+z2)/2);
+  houseGrp.add(p);
+}
+function plinthX(z, x1, x2) {
+  const len = x2 - x1;
+  const p = new THREE.Mesh(new THREE.BoxGeometry(len, plinthH, 0.03), plinthMat);
+  p.position.set((x1+x2)/2, plinthH/2 + 0.08, z);
+  houseGrp.add(p);
+}
+plinthZ(-halfW + 0.04, -halfL, halfL);
+plinthZ( halfW - 0.04, -halfL, halfL);
+
+// CIEL — petits beams structurels (visuels), pas un plafond fermé
+// pour laisser entrer la lumière HDRI
+const beamMat = new THREE.MeshStandardMaterial({ color:0x10101a, roughness:0.85 });
+for (let z = -halfL + 2; z <= halfL - 2; z += 3) {
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(halfW * 2 - wallT * 2, 0.18, 0.2), beamMat);
+  beam.position.set(0, HOUSE.wallH - 0.08, z);
+  beam.castShadow = true;
+  houseGrp.add(beam);
+}
+
+// =========================================================
+// FURNITURE FACTORIES
 // =========================================================
 function makePlant(scale = 1) {
   const g = new THREE.Group();
   const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.32, 18), MAT.pot);
-  pot.position.y = 0.16;
-  g.add(pot);
-  // Tronc
+  pot.position.y = 0.16; g.add(pot);
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.4, 8), MAT.darkWood);
-  trunk.position.y = 0.52;
-  g.add(trunk);
-  // Feuilles : 5 sphères vert deep + vert clair
+  trunk.position.y = 0.52; g.add(trunk);
   for (let i = 0; i < 7; i++) {
     const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18 + Math.random()*0.08, 0), i % 2 ? MAT.leaf : MAT.leafLight);
     const angle = (i / 7) * Math.PI * 2;
-    leaf.position.set(Math.cos(angle) * 0.22, 0.72 + (i % 3) * 0.12, Math.sin(angle) * 0.22);
-    leaf.scale.y = 0.7;
-    g.add(leaf);
+    leaf.position.set(Math.cos(angle)*0.22, 0.72 + (i%3)*0.12, Math.sin(angle)*0.22);
+    leaf.scale.y = 0.7; g.add(leaf);
   }
   g.scale.setScalar(scale);
   return castAll(g);
@@ -318,67 +447,48 @@ function makePlant(scale = 1) {
 
 function makeLoungeChair() {
   const g = new THREE.Group();
-  // Assise
   const seat = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.18, 0.85), MAT.fabricDark);
-  seat.position.y = 0.4;
-  g.add(seat);
-  // Dossier incliné
+  seat.position.y = 0.4; g.add(seat);
   const back = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.7, 0.12), MAT.fabricDark);
-  back.position.set(0, 0.78, -0.36);
-  back.rotation.x = -0.1;
-  g.add(back);
-  // 4 pieds en métal noir (style scandinave)
+  back.position.set(0, 0.78, -0.36); back.rotation.x = -0.1; g.add(back);
   for (let dx = -1; dx <= 1; dx += 2)
     for (let dz = -1; dz <= 1; dz += 2) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4, 10), MAT.blackMetal);
-      leg.position.set(dx * 0.34, 0.2, dz * 0.34);
-      g.add(leg);
+      leg.position.set(dx*0.34, 0.2, dz*0.34); g.add(leg);
     }
-  // Coussin rouge accent
   const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 0.3), new THREE.MeshStandardMaterial({ color:0xC5322D, roughness:0.9 }));
-  cushion.position.set(0, 0.55, -0.18);
-  cushion.rotation.x = -0.1;
-  g.add(cushion);
+  cushion.position.set(0, 0.55, -0.18); cushion.rotation.x = -0.1; g.add(cushion);
   return castAll(g);
 }
 
 function makeSideTable() {
   const g = new THREE.Group();
   const top = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.05, 24), MAT.lightWood);
-  top.position.y = 0.5;
-  g.add(top);
+  top.position.y = 0.5; g.add(top);
   const trim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.012, 12, 32), MAT.brass);
-  trim.rotation.x = Math.PI / 2;
-  trim.position.y = 0.525;
-  g.add(trim);
+  trim.rotation.x = Math.PI/2; trim.position.y = 0.525; g.add(trim);
   const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 12), MAT.blackMetal);
-  leg.position.y = 0.25;
-  g.add(leg);
+  leg.position.y = 0.25; g.add(leg);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.02, 24), MAT.blackMetal);
-  base.position.y = 0.01;
-  g.add(base);
-  // Petit bibelot dessus
+  base.position.y = 0.01; g.add(base);
   const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.12, 12), MAT.pot);
-  candle.position.set(0.1, 0.585, 0);
-  g.add(candle);
+  candle.position.set(0.1, 0.585, 0); g.add(candle);
   return castAll(g);
 }
 
 function makeRug(w, l, colorHex) {
-  const m = new THREE.MeshStandardMaterial({ color: colorHex ?? 0x2a2a32, roughness:0.98 });
+  const m = new THREE.MeshStandardMaterial({ color:colorHex ?? 0x2a2a32, roughness:0.98 });
   const r = new THREE.Mesh(new THREE.BoxGeometry(w, 0.015, l), m);
-  r.position.y = 0.108;
+  r.position.y = 0.088;
   r.receiveShadow = true;
   return r;
 }
 
 function makeFrame(color, w = 1.2, h = 0.85, depth = 0.04) {
   const g = new THREE.Group();
-  // Bord noir
   const outer = new THREE.Mesh(new THREE.BoxGeometry(w, h, depth), MAT.blackMetal);
   g.add(outer);
-  // Toile / image (color)
-  const inner = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.1, h - 0.1), new THREE.MeshStandardMaterial({ color, roughness:0.95 }));
+  const inner = new THREE.Mesh(new THREE.PlaneGeometry(w-0.1, h-0.1), new THREE.MeshStandardMaterial({ color, roughness:0.95 }));
   inner.position.z = depth/2 + 0.001;
   g.add(inner);
   return castAll(g);
@@ -386,99 +496,68 @@ function makeFrame(color, w = 1.2, h = 0.85, depth = 0.04) {
 
 function makeFloorLamp(color) {
   const g = new THREE.Group();
-  // Base lourde
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.04, 24), MAT.blackMetal);
-  base.position.y = 0.02;
-  g.add(base);
-  // Tige
+  base.position.y = 0.02; g.add(base);
   const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.65, 10), MAT.brass);
-  rod.position.y = 0.85;
-  g.add(rod);
-  // Abat-jour conique
+  rod.position.y = 0.85; g.add(rod);
   const shade = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.32, 24, 1, true),
-    new THREE.MeshStandardMaterial({ color, roughness:0.9, side:THREE.DoubleSide, emissive:color, emissiveIntensity:0.15 }));
-  shade.position.y = 1.85;
-  g.add(shade);
-  // Light source réelle
-  const bulb = new THREE.PointLight(0xffe1a3, 0.6, 6, 1.5);
-  bulb.position.y = 1.75;
-  g.add(bulb);
+    new THREE.MeshStandardMaterial({ color, roughness:0.9, side:THREE.DoubleSide, emissive:color, emissiveIntensity:0.18 }));
+  shade.position.y = 1.85; g.add(shade);
+  const bulb = new THREE.PointLight(0xffe1a3, 0.7, 6, 1.5);
+  bulb.position.y = 1.75; g.add(bulb);
   return castAll(g);
 }
 
 function makeDesk() {
   const g = new THREE.Group();
-  // Plateau bois clair, long
   const top = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.06, 0.7), MAT.lightWood);
-  top.position.y = 0.78;
-  g.add(top);
-  // Pieds en U (acier noir)
+  top.position.y = 0.78; g.add(top);
   for (const dx of [-1.05, 1.05]) {
     const vert = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.74, 0.04), MAT.blackMetal);
-    vert.position.set(dx, 0.39, -0.28);
-    g.add(vert);
+    vert.position.set(dx, 0.39, -0.28); g.add(vert);
     const vert2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.74, 0.04), MAT.blackMetal);
-    vert2.position.set(dx, 0.39, 0.28);
-    g.add(vert2);
+    vert2.position.set(dx, 0.39, 0.28); g.add(vert2);
     const base = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.6), MAT.blackMetal);
-    base.position.set(dx, 0.02, 0);
-    g.add(base);
+    base.position.set(dx, 0.02, 0); g.add(base);
   }
-  // Écran : pied + dalle
   const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.06, 0.18, 12), MAT.blackMetal);
-  stand.position.set(0, 0.88, -0.18);
-  g.add(stand);
+  stand.position.set(0, 0.88, -0.18); g.add(stand);
   const screen = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.62, 0.04), MAT.blackMetal);
-  screen.position.set(0, 1.28, -0.18);
-  g.add(screen);
-  const display = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 0.56), new THREE.MeshStandardMaterial({ color:0x8FAF89, emissive:0x8FAF89, emissiveIntensity:0.35, roughness:0.4 }));
-  display.position.set(0, 1.28, -0.158);
-  g.add(display);
-  // Clavier + cup
+  screen.position.set(0, 1.28, -0.18); g.add(screen);
+  const display = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 0.56), new THREE.MeshStandardMaterial({ color:0x8FAF89, emissive:0x8FAF89, emissiveIntensity:0.4, roughness:0.4 }));
+  display.position.set(0, 1.28, -0.158); g.add(display);
   const kb = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.025, 0.18), MAT.plasterDark);
-  kb.position.set(0, 0.823, 0.12);
-  g.add(kb);
+  kb.position.set(0, 0.823, 0.12); g.add(kb);
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.12, 12), MAT.pot);
-  cup.position.set(-0.85, 0.875, 0.15);
-  g.add(cup);
+  cup.position.set(-0.85, 0.875, 0.15); g.add(cup);
   return castAll(g);
 }
 
 function makeOfficeChair() {
   const g = new THREE.Group();
-  // Roue / base étoile
   for (let i = 0; i < 5; i++) {
-    const angle = (i / 5) * Math.PI * 2;
+    const angle = (i/5) * Math.PI * 2;
     const arm = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.04, 0.05), MAT.blackMetal);
-    arm.position.set(Math.cos(angle) * 0.18, 0.05, Math.sin(angle) * 0.18);
+    arm.position.set(Math.cos(angle)*0.18, 0.05, Math.sin(angle)*0.18);
     arm.rotation.y = -angle;
     g.add(arm);
   }
-  // Tige
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.42, 12), MAT.blackMetal);
-  pole.position.y = 0.27;
-  g.add(pole);
-  // Assise
+  pole.position.y = 0.27; g.add(pole);
   const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), MAT.fabricDark);
-  seat.position.y = 0.55;
-  g.add(seat);
-  // Dossier
+  seat.position.y = 0.55; g.add(seat);
   const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.08), MAT.fabricDark);
-  back.position.set(0, 0.92, -0.21);
-  back.rotation.x = -0.08;
-  g.add(back);
+  back.position.set(0, 0.92, -0.21); back.rotation.x = -0.08; g.add(back);
   return castAll(g);
 }
 
 function makeBench() {
   const g = new THREE.Group();
-  const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.5), MAT.lightWood);
-  top.position.y = 0.45;
-  g.add(top);
-  for (const dx of [-0.95, 0.95]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.5), MAT.blackMetal);
-    leg.position.set(dx, 0.21, 0);
-    g.add(leg);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.45), MAT.lightWood);
+  top.position.y = 0.45; g.add(top);
+  for (const dx of [-0.85, 0.85]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.45), MAT.blackMetal);
+    leg.position.set(dx, 0.21, 0); g.add(leg);
   }
   return castAll(g);
 }
@@ -486,223 +565,167 @@ function makeBench() {
 function makeRoundTable() {
   const g = new THREE.Group();
   const top = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.05, 32), MAT.lightWood);
-  top.position.y = 0.72;
-  g.add(top);
+  top.position.y = 0.72; g.add(top);
   const trim = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.012, 12, 64), MAT.blackMetal);
-  trim.rotation.x = Math.PI / 2;
-  trim.position.y = 0.745;
-  g.add(trim);
-  // Pied central + base
+  trim.rotation.x = Math.PI/2; trim.position.y = 0.745; g.add(trim);
   const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.68, 12), MAT.blackMetal);
-  post.position.y = 0.36;
-  g.add(post);
+  post.position.y = 0.36; g.add(post);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.04, 24), MAT.blackMetal);
-  base.position.y = 0.02;
-  g.add(base);
+  base.position.y = 0.02; g.add(base);
   return castAll(g);
 }
 
 function makeDiningChair() {
   const g = new THREE.Group();
   const seat = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.45), MAT.fabricLight);
-  seat.position.y = 0.45;
-  g.add(seat);
+  seat.position.y = 0.45; g.add(seat);
   const back = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.6, 0.06), MAT.lightWood);
-  back.position.set(0, 0.75, -0.21);
-  g.add(back);
+  back.position.set(0, 0.75, -0.21); g.add(back);
   for (let dx = -1; dx <= 1; dx += 2)
     for (let dz = -1; dz <= 1; dz += 2) {
       const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.45, 8), MAT.blackMetal);
-      leg.position.set(dx * 0.18, 0.225, dz * 0.18);
-      g.add(leg);
+      leg.position.set(dx*0.18, 0.225, dz*0.18); g.add(leg);
     }
   return castAll(g);
 }
 
 function makePendantLamp() {
   const g = new THREE.Group();
-  // Câble
   const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.005, 1.2, 6), MAT.blackMetal);
-  cable.position.y = 2.4;
-  g.add(cable);
-  // Dôme noir
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.35, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+  cable.position.y = 2.7; g.add(cable);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.35, 32, 16, 0, Math.PI*2, 0, Math.PI/2),
     new THREE.MeshStandardMaterial({ color:0x14141A, roughness:0.4, metalness:0.5, side:THREE.DoubleSide }));
-  dome.position.y = 1.8;
-  g.add(dome);
-  // Intérieur laiton
-  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), MAT.brass);
-  inner.position.y = 1.81;
-  inner.scale.y = -1;
-  g.add(inner);
-  // Ampoule
-  const bulb = new THREE.PointLight(0xffe2a8, 0.9, 6, 1.4);
-  bulb.position.y = 1.6;
-  g.add(bulb);
+  dome.position.y = 2.0; g.add(dome);
+  const inner = new THREE.Mesh(new THREE.SphereGeometry(0.32, 24, 12, 0, Math.PI*2, 0, Math.PI/2), MAT.brass);
+  inner.position.y = 2.01; inner.scale.y = -1; g.add(inner);
+  const bulb = new THREE.PointLight(0xffe2a8, 1.0, 6, 1.4);
+  bulb.position.y = 1.75; g.add(bulb);
   return castAll(g);
 }
 
 // =========================================================
-// 9) ROOM BUILDER (loft moderne)
+// PLACER LE MOBILIER DANS LES PIÈCES
 // =========================================================
-const ROOM_SIZE = 9;
-const WALL_H = 3.8;
-const WALL_T = 0.18;
 
-const roomGroups = [];
-
-function buildRoom(room) {
-  const grp = new THREE.Group();
-  grp.position.set(room.pos[0], 0, room.pos[2]);
-  grp.userData.room = room;
-
-  // Parquet
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE, 0.1, ROOM_SIZE), MAT.parquet);
-  floor.position.y = 0.05;
-  floor.receiveShadow = true;
-  grp.add(floor);
-
-  // Plinthe noire au sol
-  const plinthMat = MAT.plasterDark;
-  const plinthSize = 0.12;
-  for (const [px, pz, sx, sz] of [
-    [0, -ROOM_SIZE/2, ROOM_SIZE, WALL_T + 0.02],
-    [0,  ROOM_SIZE/2, ROOM_SIZE, WALL_T + 0.02],
-    [-ROOM_SIZE/2, 0, WALL_T + 0.02, ROOM_SIZE],
-    [ ROOM_SIZE/2, 0, WALL_T + 0.02, ROOM_SIZE]
-  ]) {
-    const pl = new THREE.Mesh(new THREE.BoxGeometry(sx, plinthSize, sz), plinthMat);
-    pl.position.set(px, 0.16, pz);
-    grp.add(pl);
-  }
-
-  // Murs (plâtre crème)
-  const back = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE, WALL_H, WALL_T), MAT.plaster);
-  back.position.set(0, WALL_H/2, -ROOM_SIZE/2);
-  back.castShadow = back.receiveShadow = true;
-  grp.add(back);
-
-  const left = new THREE.Mesh(new THREE.BoxGeometry(WALL_T, WALL_H, ROOM_SIZE), MAT.plaster.clone());
-  left.position.set(-ROOM_SIZE/2, WALL_H/2, 0);
-  left.castShadow = left.receiveShadow = true;
-  grp.add(left);
-
-  const right = left.clone();
-  right.position.x = ROOM_SIZE/2;
-  grp.add(right);
-
-  // Petit moulurage haut (corniche)
-  const cornice = new THREE.Mesh(new THREE.BoxGeometry(ROOM_SIZE, 0.08, 0.05), MAT.plaster);
-  cornice.position.set(0, WALL_H - 0.06, -ROOM_SIZE/2 + WALL_T/2 + 0.06);
-  grp.add(cornice);
-
-  // Mobilier par pièce (loft moderne minimaliste)
-  let furniture = [];
-
-  if (room.id === 0) {
-    // ENTRÉE : tapis + fauteuil + table d'appoint + plante + cadre + lampadaire
-    const rug = makeRug(3.5, 2.6); rug.position.set(0, 0.108, 0); furniture.push(rug);
-    const chair = makeLoungeChair(); chair.position.set(-1.1, 0.13, 0.4); chair.rotation.y = 0.6; furniture.push(chair);
-    const table = makeSideTable(); table.position.set(-1.1, 0.13, 1.55); furniture.push(table);
-    const plant = makePlant(1.3); plant.position.set(1.4, 0.13, -1.8); furniture.push(plant);
-    const frame = makeFrame(0xC5322D, 1.4, 1.0); frame.position.set(0, WALL_H * 0.55, -ROOM_SIZE/2 + WALL_T/2 + 0.05); furniture.push(frame);
-    const lamp = makeFloorLamp(0xEAE5D6); lamp.position.set(1.8, 0.13, 0.6); furniture.push(lamp);
-  }
-  else if (room.id === 1) {
-    // BUREAU : bureau debout + chaise + lampe + plante + tapis discret
-    const rug = makeRug(3.6, 2.4); rug.position.set(0, 0.108, 0.6); furniture.push(rug);
-    const desk = makeDesk(); desk.position.set(0, 0.11, -1.5); desk.rotation.y = 0; furniture.push(desk);
-    const chair = makeOfficeChair(); chair.position.set(0, 0.11, -0.5); furniture.push(chair);
-    const lamp = makeFloorLamp(0x8FAF89); lamp.position.set(2.2, 0.13, -1.5); furniture.push(lamp);
-    const plant = makePlant(1.1); plant.position.set(-2.4, 0.13, -1.5); furniture.push(plant);
-    const plant2 = makePlant(0.8); plant2.position.set(2.4, 0.13, 1.8); furniture.push(plant2);
-    // Tableau au mur (vert volet accent)
-    const frame = makeFrame(0x8FAF89, 1.2, 0.85); frame.position.set(0, WALL_H * 0.62, -ROOM_SIZE/2 + WALL_T/2 + 0.05); furniture.push(frame);
-  }
-  else if (room.id === 2) {
-    // GALERIE : 3 cadres alignés + banc + grande plante
-    const frames = [
-      { color: 0xC5322D, x: -1.6 },
-      { color: 0xF5F0E1, x:  0   },
-      { color: 0x4A6347, x:  1.6 }
-    ];
-    frames.forEach(f => {
-      const fr = makeFrame(f.color, 1.1, 0.85);
-      fr.position.set(f.x, WALL_H * 0.58, -ROOM_SIZE/2 + WALL_T/2 + 0.05);
-      furniture.push(fr);
-    });
-    const bench = makeBench(); bench.position.set(0, 0.11, 1.0); furniture.push(bench);
-    const bigPlant = makePlant(1.7); bigPlant.position.set(-3.4, 0.13, 2.4); furniture.push(bigPlant);
-    const plant2 = makePlant(1.2); plant2.position.set(3.4, 0.13, 2.4); furniture.push(plant2);
-  }
-  else if (room.id === 3) {
-    // RÉUNION : table ronde + 4 chaises + lampe pendant + plante
-    const rug = makeRug(3.8, 3.8, 0x2c2c34); rug.position.set(0, 0.108, 0); furniture.push(rug);
-    const table = makeRoundTable(); table.position.set(0, 0.11, 0); furniture.push(table);
-    const chairAngles = [0, Math.PI/2, Math.PI, -Math.PI/2];
-    chairAngles.forEach(a => {
-      const c = makeDiningChair();
-      c.position.set(Math.cos(a) * 1.5, 0.11, Math.sin(a) * 1.5);
-      c.rotation.y = -a + Math.PI;
-      furniture.push(c);
-    });
-    const pendant = makePendantLamp(); pendant.position.set(0, 0.11, 0); furniture.push(pendant);
-    const plant = makePlant(1.4); plant.position.set(-3.4, 0.13, -2.6); furniture.push(plant);
-    // Tableau au mur
-    const frame = makeFrame(0x4A6347, 1.4, 0.95); frame.position.set(0, WALL_H * 0.58, -ROOM_SIZE/2 + WALL_T/2 + 0.05); furniture.push(frame);
-  }
-
-  furniture.forEach(f => grp.add(f));
-
-  // Petit numéro de pièce (subtil, en haut sur le mur)
-  const numC = document.createElement('canvas'); numC.width = 256; numC.height = 128;
-  const nctx = numC.getContext('2d');
-  nctx.fillStyle = `#${room.color.toString(16).padStart(6,'0')}`;
-  nctx.font = 'bold 90px system-ui,-apple-system,sans-serif';
-  nctx.textAlign = 'center'; nctx.textBaseline = 'middle';
-  nctx.fillText(`0${room.id + 1}`, 128, 64);
-  const numTex = new THREE.CanvasTexture(numC); numTex.colorSpace = THREE.SRGBColorSpace;
-  const numSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map:numTex, transparent:true, opacity:0.5 }));
-  numSprite.scale.set(1.2, 0.6, 1);
-  numSprite.position.set(-ROOM_SIZE/2 + 0.6, WALL_H - 0.6, 0);
-  grp.add(numSprite);
-
-  scene.add(grp);
-  roomGroups.push(grp);
+// R1 — Entrée (centre [-4, 0, -5]) — back wall ouest x=-halfW=-6.5
+{
+  const cx = -4, cz = -5;
+  const rug = makeRug(2.8, 2.0); rug.position.set(cx, 0.092, cz - 0.3); houseGrp.add(rug);
+  const chair = makeLoungeChair(); chair.position.set(cx - 1.2, 0.1, cz + 0.5); chair.rotation.y = Math.PI/2 + 0.3; houseGrp.add(chair);
+  const table = makeSideTable(); table.position.set(cx - 1.4, 0.1, cz - 0.8); houseGrp.add(table);
+  const plant = makePlant(1.3); plant.position.set(cx - 1.8, 0.1, cz + 2.2); houseGrp.add(plant);
+  // Cadre sur mur ouest (x = -halfW + wallT/2)
+  const frame = makeFrame(0xC5322D, 1.4, 1.0);
+  frame.position.set(-halfW + wallT/2 + 0.03, HOUSE.wallH * 0.55, cz);
+  frame.rotation.y = Math.PI / 2;
+  houseGrp.add(frame);
+  const lamp = makeFloorLamp(0xEAE5D6); lamp.position.set(cx + 0.6, 0.1, cz + 1.8); houseGrp.add(lamp);
 }
 
-ROOMS.forEach(buildRoom);
+// R2 — Bureau (centre [4, 0, -5]) — back wall est x=+halfW
+{
+  const cx = 4, cz = -5;
+  const desk = makeDesk(); desk.position.set(cx + 0.5, 0.1, cz - 1.5); desk.rotation.y = -Math.PI/2; houseGrp.add(desk);
+  const chair = makeOfficeChair(); chair.position.set(cx, 0.1, cz - 1.5); houseGrp.add(chair);
+  const lamp = makeFloorLamp(0x8FAF89); lamp.position.set(cx + 1.4, 0.1, cz + 2.3); houseGrp.add(lamp);
+  const plant = makePlant(1.1); plant.position.set(cx - 1.4, 0.1, cz - 2.4); houseGrp.add(plant);
+  const plant2 = makePlant(0.8); plant2.position.set(cx + 1.5, 0.1, cz + 1.0); houseGrp.add(plant2);
+  // Cadre sur mur est
+  const frame = makeFrame(0x8FAF89, 1.2, 0.85);
+  frame.position.set(halfW - wallT/2 - 0.03, HOUSE.wallH * 0.6, cz);
+  frame.rotation.y = -Math.PI / 2;
+  houseGrp.add(frame);
+}
+
+// R3 — Galerie (centre [-4, 0, 5]) — back wall ouest x=-halfW
+{
+  const cx = -4, cz = 5;
+  // 3 cadres sur mur ouest, alignés verticalement (variant z)
+  const colors = [0xC5322D, 0xF5F0E1, 0x4A6347];
+  colors.forEach((c, i) => {
+    const f = makeFrame(c, 1.0, 0.75);
+    f.position.set(-halfW + wallT/2 + 0.03, HOUSE.wallH * 0.58, cz + (i - 1) * 1.5);
+    f.rotation.y = Math.PI / 2;
+    houseGrp.add(f);
+  });
+  const bench = makeBench(); bench.position.set(cx + 0.6, 0.1, cz); bench.rotation.y = Math.PI/2; houseGrp.add(bench);
+  const bigPlant = makePlant(1.7); bigPlant.position.set(cx - 1.6, 0.1, cz + 2.5); houseGrp.add(bigPlant);
+  const plant2 = makePlant(1.2); plant2.position.set(cx + 1.4, 0.1, cz - 2.5); houseGrp.add(plant2);
+}
+
+// R4 — Réunion (centre [4, 0, 5]) — back wall est x=+halfW
+{
+  const cx = 4, cz = 5;
+  const rug = makeRug(3.2, 3.2, 0x2c2c34); rug.position.set(cx, 0.092, cz); houseGrp.add(rug);
+  const table = makeRoundTable(); table.position.set(cx, 0.1, cz); houseGrp.add(table);
+  const chairAngles = [0, Math.PI/2, Math.PI, -Math.PI/2];
+  chairAngles.forEach(a => {
+    const c = makeDiningChair();
+    c.position.set(cx + Math.cos(a)*1.5, 0.1, cz + Math.sin(a)*1.5);
+    c.rotation.y = -a + Math.PI;
+    houseGrp.add(c);
+  });
+  const pendant = makePendantLamp(); pendant.position.set(cx, 0.1, cz); houseGrp.add(pendant);
+  const plant = makePlant(1.4); plant.position.set(cx - 1.6, 0.1, cz + 2.5); houseGrp.add(plant);
+  const frame = makeFrame(0x4A6347, 1.4, 0.95);
+  frame.position.set(halfW - wallT/2 - 0.03, HOUSE.wallH * 0.58, cz);
+  frame.rotation.y = -Math.PI / 2;
+  houseGrp.add(frame);
+}
+
+// CORRIDOR — éléments décoratifs
+// Tapis runner au sol du corridor
+const runner = new THREE.Mesh(new THREE.BoxGeometry(corrHalf * 2 - 0.4, 0.015, halfL * 2 - 2),
+  new THREE.MeshStandardMaterial({ color:0x1f1f28, roughness:0.95 }));
+runner.position.set(0, 0.088, 0);
+runner.receiveShadow = true;
+houseGrp.add(runner);
+
+// 2 plantes dans le couloir (aux extrémités)
+const corrPlant1 = makePlant(1.2); corrPlant1.position.set(0, 0.1, -8.5); houseGrp.add(corrPlant1);
+const corrPlant2 = makePlant(1.0); corrPlant2.position.set(0, 0.1, 8.5); houseGrp.add(corrPlant2);
+
+// Lampe pendant dans le couloir (au croisement)
+const corrLamp = makePendantLamp(); corrLamp.position.set(0, 0.1, 0); houseGrp.add(corrLamp);
 
 // =========================================================
-// 10) CAMERA PATH (Catmull-Rom)
+// CAMERA PATH — vraie marche dans la maison
+// 13 waypoints : approche → entre → R1 → corridor → R2 → corridor → R3 → corridor → R4 → sortie
 // =========================================================
-function spotFor(idx) {
-  const r = ROOMS[idx];
-  return new THREE.Vector3(r.pos[0], 1.65, r.pos[2] + 2.6);
-}
-function lookFor(idx) {
-  const r = ROOMS[idx];
-  return new THREE.Vector3(r.pos[0], 1.3, r.pos[2] - ROOM_SIZE/2 + 1);
-}
-
-const camPositions = [
-  new THREE.Vector3(0, 10, 22),           // 0 — Overview intro
-  spotFor(0),                             // 1 — Entrée
-  spotFor(1),                             // 2 — Bureau
-  spotFor(2),                             // 3 — Galerie
-  spotFor(3),                             // 4 — Réunion
-  new THREE.Vector3(0, 7, 20),            // 5 — Outro
+const WP = [
+  // 0 — Approche extérieure sud (overview)
+  { p:new THREE.Vector3(0, 7, -22), l:new THREE.Vector3(0, 1, 0) },
+  // 1 — Devant la porte d'entrée
+  { p:new THREE.Vector3(0, 1.7, -13), l:new THREE.Vector3(0, 1.5, -8) },
+  // 2 — Juste entré, dans le corridor sud
+  { p:new THREE.Vector3(0, 1.7, -9), l:new THREE.Vector3(0, 1.5, -5) },
+  // 3 — Devant porte R1 (regard vers l'intérieur ouest)
+  { p:new THREE.Vector3(0, 1.65, -5.5), l:new THREE.Vector3(-5, 1.4, -5) },
+  // 4 — Dans R1 (Entrée)
+  { p:new THREE.Vector3(-3.0, 1.65, -5), l:new THREE.Vector3(-6, 1.3, -5.5) },
+  // 5 — Retour corridor sud
+  { p:new THREE.Vector3(0, 1.7, -4.5), l:new THREE.Vector3(3, 1.4, -5) },
+  // 6 — Dans R2 (Bureau)
+  { p:new THREE.Vector3( 3.0, 1.65, -5), l:new THREE.Vector3(6, 1.3, -5.5) },
+  // 7 — Corridor central
+  { p:new THREE.Vector3(0, 1.7, 0), l:new THREE.Vector3(0, 1.5, 4) },
+  // 8 — Devant porte R3
+  { p:new THREE.Vector3(0, 1.65, 4.5), l:new THREE.Vector3(-5, 1.4, 5) },
+  // 9 — Dans R3 (Galerie)
+  { p:new THREE.Vector3(-3.0, 1.65, 5), l:new THREE.Vector3(-6, 1.4, 5) },
+  // 10 — Corridor nord
+  { p:new THREE.Vector3(0, 1.7, 5.5), l:new THREE.Vector3(3, 1.4, 5) },
+  // 11 — Dans R4 (Réunion)
+  { p:new THREE.Vector3( 3.0, 1.65, 5), l:new THREE.Vector3(6, 1.3, 5.5) },
+  // 12 — Sortie corridor nord (outro)
+  { p:new THREE.Vector3(0, 5, 18), l:new THREE.Vector3(0, 1, 0) },
 ];
-const camLooks = [
-  new THREE.Vector3(0, 0.8, 0),
-  lookFor(0), lookFor(1), lookFor(2), lookFor(3),
-  new THREE.Vector3(0, 1, 0),
-];
-const posCurve  = new THREE.CatmullRomCurve3(camPositions, false, 'catmullrom', 0.4);
-const lookCurve = new THREE.CatmullRomCurve3(camLooks,     false, 'catmullrom', 0.4);
+
+const posCurve = new THREE.CatmullRomCurve3(WP.map(w => w.p), false, 'catmullrom', 0.5);
+const lookCurve = new THREE.CatmullRomCurve3(WP.map(w => w.l), false, 'catmullrom', 0.5);
 
 // =========================================================
-// 11) SCROLL + LENIS
+// SCROLL + LENIS
 // =========================================================
 let scrollT = 0, targetT = 0;
 function updateScrollT() {
@@ -710,7 +733,7 @@ function updateScrollT() {
   targetT = Math.max(0, Math.min(1, scrollY / Math.max(1, max)));
 }
 const lenis = (typeof Lenis === 'function' && !prefersReduced)
-  ? new Lenis({ duration: 1.4, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true, smoothTouch: false })
+  ? new Lenis({ duration: 1.6, easing: t => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smoothWheel: true, smoothTouch: false })
   : null;
 if (lenis) {
   lenis.on('scroll', updateScrollT);
@@ -720,9 +743,7 @@ if (lenis) {
 }
 updateScrollT();
 
-// =========================================================
-// 12) HUD
-// =========================================================
+// HUD
 const dots = [...document.querySelectorAll('#progress .dot')];
 const hint = document.getElementById('scroll-hint');
 function updateHUD() {
@@ -741,26 +762,38 @@ dots.forEach((d, i) => {
 });
 
 // =========================================================
-// 13) LOOP
+// LOOP — caméra avec head-bob doux
 // =========================================================
 const clock = new THREE.Clock();
 const lookV = new THREE.Vector3();
+const bobV = new THREE.Vector3();
 
 function loop() {
   const dt = clock.getDelta();
-  scrollT += (targetT - scrollT) * 0.08;
+  const t = clock.getElapsedTime();
+
+  // Lerp plus doux qu'avant (0.04 au lieu de 0.08) → mouvement plus fluide
+  scrollT += (targetT - scrollT) * 0.05;
   const tC = Math.max(0, Math.min(1, scrollT));
-  camera.position.copy(posCurve.getPointAt(tC));
+
+  // Sample position et regard
+  const camPos = posCurve.getPointAt(tC);
   lookV.copy(lookCurve.getPointAt(tC));
+
+  // Subtle head-bob (uniquement quand on est à l'intérieur, pas pour intro/outro)
+  const inside = tC > 0.08 && tC < 0.92;
+  const bobY = inside ? Math.sin(t * 3) * 0.025 : 0;
+  const bobX = inside ? Math.sin(t * 1.7) * 0.015 : 0;
+  camera.position.set(camPos.x + bobX, camPos.y + bobY, camPos.z);
   camera.lookAt(lookV);
+
   updateHUD();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
 loop();
 
-// Hide loader once HDRI + textures roughly ready
-setTimeout(() => document.getElementById('loader').classList.add('gone'), 1400);
+setTimeout(() => document.getElementById('loader').classList.add('gone'), 1500);
 </script>
 </body>
 </html>
